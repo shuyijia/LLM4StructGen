@@ -161,3 +161,12 @@ cython_debug/
 
 # mac OS
 .DS_Store
+
+# ignore data/
+data/
+exp/
+exp/**/*
+wandb/
+wandb/**/*
+
+*.out
