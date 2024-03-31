@@ -6,12 +6,11 @@ import numpy as np
 import pandas as pd
 from pymatgen.core.structure import Structure
 
-from dataclasses import dataclass
-import transformers
+
 
 from torch.utils.data import Dataset
 
-from constants import *
+from llm4structgen.constants import *
 
 def get_crystal_string(cif_str):
     structure = Structure.from_str(cif_str, fmt="cif")
@@ -37,13 +36,14 @@ def get_crystal_string(cif_str):
 
     return crystal_str
 
-class CifDataset(Dataset):
+class CartesianDataset(Dataset):
     def __init__(
         self,
         csv_fn,
         format_options={},
         llama_tokenizer=None,
         w_attributes=False,
+        task_probabilities=None,
     ):
         super().__init__()
 
@@ -55,6 +55,10 @@ class CifDataset(Dataset):
         self.llama_tokenizer = llama_tokenizer
         self.format_options = format_options
         self.w_attributes = w_attributes
+
+        if task_probabilities is None:
+            task_probabilities = {"generation": 2/3., "infill": 1/3.}
+        self.task_probabilities = task_probabilities
    
     def crystal_string(self, input_dict):
         k = 'cif' if 'cif' in input_dict else 'cif_str'
@@ -144,7 +148,8 @@ class CifDataset(Dataset):
         return tokens
 
     def tokenize(self, input_dict):
-        if random.random() < 0.66:
+        random_val = random.random()
+        if random_val < self.task_probabilities["generation"]:
             tokens = self.generation_task(input_dict)
         else:
             tokens = self.infill_task(input_dict)
@@ -169,26 +174,3 @@ class CifDataset(Dataset):
         vals = self.inputs[index]
         vals = self.tokenize(vals)
         return vals
-
-@dataclass
-class DataCollatorForSupervisedDataset(object):
-    """Collate examples for supervised fine-tuning."""
-
-    tokenizer: transformers.PreTrainedTokenizer
-
-    def __call__(self, instances):
-        # print(instances)
-        input_ids, labels = tuple(
-            [instance[key].clone().detach() for instance in instances] 
-                for key in ("input_ids", "labels")
-        )
-        input_ids = torch.nn.utils.rnn.pad_sequence(
-            input_ids, batch_first=True, padding_value=self.tokenizer.pad_token_id
-        )
-        labels = torch.nn.utils.rnn.pad_sequence(labels, batch_first=True, padding_value=IGNORE_INDEX)
-        return dict(
-            input_ids=input_ids,
-            labels=labels,
-            attention_mask=input_ids.ne(self.tokenizer.pad_token_id),
-        )
-
