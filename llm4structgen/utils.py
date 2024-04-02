@@ -54,28 +54,7 @@ def get_model_name(model_name):
 
     return llama2_model_string(model_size, is_chat)
 
-def get_model(args, rank):
-    # for SFT Trainer
-    model_string = get_model_name(args.model_name)
-
-    compute_dtype = getattr(torch, "float16")
-
-    quant_config = BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_quant_type="nf4",
-        bnb_4bit_compute_dtype=compute_dtype,
-        bnb_4bit_use_double_quant=False,
-    )
-
-    model = LlamaForCausalLM.from_pretrained(
-        model_string,
-        quantization_config=quant_config,
-        device_map={"": rank}
-    )
-
-    return model
-
-def get_crystal_llm_model(args, rank):
+def get_model_configed(args, rank):
     model_string = get_model_name(args.model_name)
 
     quantization_config=BitsAndBytesConfig(
@@ -102,6 +81,52 @@ def get_crystal_llm_model(args, rank):
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
     return model
+
+def get_model(args, rank):
+    # for SFT Trainer
+    model_string = get_model_name(args.model_name)
+
+    compute_dtype = getattr(torch, "float16")
+
+    quant_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=compute_dtype,
+        bnb_4bit_use_double_quant=False,
+    )
+
+    model = LlamaForCausalLM.from_pretrained(
+        model_string,
+        quantization_config=quant_config,
+        device_map={"": rank}
+    )
+
+    return model
+
+
+
+def get_crystal_llm_model(args, rank):
+    model_string = get_model_name(args.model_name)
+
+    model = LlamaForCausalLM.from_pretrained(
+        model_string,
+        load_in_8bit=args.fp8,
+        device_map={"": rank}
+    )
+
+    lora_config = LoraConfig(
+        r=args.lora_rank,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    model = get_peft_model(model, lora_config)
+    model.print_trainable_parameters()
+
+    return model
+
 
 def get_tokenizer(args):
     model_string = get_model_name(args.model_name)

@@ -42,7 +42,7 @@ training_args = TrainingArguments(
     label_names=["crystal_ids"], #this is just to get trainer to behave how I want
 )
 
-model = get_crystal_llm_model(args, training_args.local_rank)
+model = get_model_configed(args, training_args.local_rank)
 tokenizer = get_tokenizer(args)
 smart_tokenizer_and_embedding_resize(model, tokenizer)
 datasets = get_datasets(args, tokenizer)
