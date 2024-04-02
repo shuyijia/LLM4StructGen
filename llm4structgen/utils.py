@@ -78,11 +78,12 @@ def get_model(args, rank):
 def get_crystal_llm_model(args, rank):
     model_string = get_model_name(args.model_name)
 
-    model = LlamaForCausalLM.from_pretrained(
-        model_string,
-        load_in_8bit=args.fp8,
-        device_map={"": rank}
+    quantization_config=BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_quant_type="nf4",
     )
+
 
     lora_config = LoraConfig(
         r=args.lora_rank,
@@ -92,6 +93,14 @@ def get_crystal_llm_model(args, rank):
         task_type="CAUSAL_LM",
     )
 
+    model = LlamaForCausalLM.from_pretrained(
+        model_string,
+        #load_in_8bit=args.fp8,
+        quantization_config=quantization_config,
+        device_map={"": rank},
+        torch_dtype=torch.bfloat16,
+
+    )
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
 

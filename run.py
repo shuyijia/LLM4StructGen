@@ -6,7 +6,7 @@ from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
 
 args = ModelConfig(
-    run_name="test",
+    run_name="Trainer_BBQuantization",
     model_name="7b",
     batch_size=8,
 )

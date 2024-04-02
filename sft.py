@@ -1,6 +1,6 @@
 import os
 import torch
-from transformers import TrainingArguments
+from transformers import Trainer, TrainingArguments
 from trl import SFTTrainer
 from peft import LoraConfig
 
@@ -8,7 +8,7 @@ from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
 
 args = ModelConfig(
-    run_name="sft-test",
+    run_name="sft-crystal",
     model_name="7b",
     batch_size=8,
 )
@@ -44,29 +44,19 @@ training_args = TrainingArguments(
     label_names=["crystal_ids"], #this is just to get trainer to behave how I want
 )
 
-model = get_model(args, training_args.local_rank)
+model = get_crystal_llm_model(args, training_args.local_rank)
 tokenizer = get_tokenizer(args)
 smart_tokenizer_and_embedding_resize(model, tokenizer)
 datasets = get_datasets(args, tokenizer)
 data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
 
-lora_config = LoraConfig(
-    r=args.lora_rank,
-    lora_alpha=args.lora_alpha,
-    lora_dropout=args.lora_dropout,
-    bias="none",
-    task_type="CAUSAL_LM",
-)
 
-trainer = SFTTrainer(
+trainer = Trainer(
     model,
     args=training_args,
     train_dataset=datasets["train"],
     eval_dataset=datasets["val"],
-    max_seq_length=MAX_LENGTH,
-    peft_config=lora_config,
     data_collator=data_collator,
-    packing=True
 )
 
 train_result = trainer.train()
