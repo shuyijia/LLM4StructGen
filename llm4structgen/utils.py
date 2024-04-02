@@ -84,7 +84,6 @@ def get_crystal_llm_model(args, rank):
         bnb_4bit_quant_type="nf4",
     )
 
-
     lora_config = LoraConfig(
         r=args.lora_rank,
         lora_alpha=args.lora_alpha,
@@ -95,7 +94,6 @@ def get_crystal_llm_model(args, rank):
 
     model = LlamaForCausalLM.from_pretrained(
         model_string,
-        #load_in_8bit=args.fp8,
         quantization_config=quantization_config,
         device_map={"": rank},
         torch_dtype=torch.bfloat16,
@@ -103,7 +101,6 @@ def get_crystal_llm_model(args, rank):
     )
     model = get_peft_model(model, lora_config)
     model.print_trainable_parameters()
-
     return model
 
 def get_tokenizer(args):
