@@ -7,10 +7,17 @@ from peft import LoraConfig
 from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
 
+os.environ["WANDB_PROJECT"] = "internal-coordinates"
+
 args = ModelConfig(
-    run_name="sft-test",
+    run_name="sft-zmatrix-7b-10epochs-unconditional",
     model_name="7b",
-    batch_size=8,
+    batch_size=4,
+    num_epochs=10,
+    dataset_type="zmatrix",
+    data_path=Path("data/mp20-zmatrix/mp-20/"),
+    w_attributes=False, # unconditional generation
+    task_probabilities={"generation": 1., "infill": 0.} # only generation task
 )
 
 output_dir= args.expdir / args.run_name
@@ -18,6 +25,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 
 os.environ["ACCELERATE_MIXED_PRECISION"] = "no"
 training_args = TrainingArguments(
+    run_name=args.run_name,
     fsdp=False,
     fp16=not args.fp8,
     bf16=False,
@@ -37,7 +45,6 @@ training_args = TrainingArguments(
     weight_decay=args.weight_decay,
     gradient_accumulation_steps=args.gradient_accumulation_steps,
     output_dir=output_dir,
-    run_name=args.run_name,
     report_to="wandb",
     dataloader_num_workers=8,
     remove_unused_columns=False,
@@ -68,6 +75,8 @@ trainer = SFTTrainer(
     data_collator=data_collator,
     packing=True
 )
+
+print(args)
 
 train_result = trainer.train()
 trainer.save_state()

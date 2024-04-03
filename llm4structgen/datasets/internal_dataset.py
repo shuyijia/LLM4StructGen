@@ -17,6 +17,7 @@ class InternalCoordinatesDataset(Dataset):
     def __init__(
         self,
         csv_fn,
+        format_options={},
         llama_tokenizer=None,
         w_attributes=False,
         task_probabilities=None,
@@ -29,6 +30,7 @@ class InternalCoordinatesDataset(Dataset):
         df = pd.concat([pd.read_csv(fn) for fn in glob.glob(csv_fn)])
         self.inputs = df.to_dict(orient="records")
         self.llama_tokenizer = llama_tokenizer
+        self.format_options = format_options
         self.w_attributes = w_attributes
 
         if task_probabilities is None:

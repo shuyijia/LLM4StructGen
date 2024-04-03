@@ -168,5 +168,7 @@ exp/
 exp/**/*
 wandb/
 wandb/**/*
+checkpoints/
+checkpoints/**/*
 
 *.out
