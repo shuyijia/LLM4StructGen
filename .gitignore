@@ -170,5 +170,9 @@ wandb/
 wandb/**/*
 checkpoints/
 checkpoints/**/*
+outputs/
+outputs/**/*
+archives/
+archives/**/*
 
 *.out

@@ -24,16 +24,5 @@ model.eval()
 smart_tokenizer_and_embedding_resize(model, tokenizer)
 model = PeftModel.from_pretrained(model, args.model_path, device_map="auto")
 
-composition = "SrTiO3"
-save_folder_name = "SrTiO3"
-os.makedirs(f"outputs/{save_folder_name}", exist_ok=True)
+compositions = ["SrTiO3", "TiO2", "TbCd3", "CsTeAu", "Gd2InGe2", "Li3MnCoO5"]
 
-temperatures = [0.01, 0.1, 0.3, 0.5, 0.7, 0.9, 1.5]
-top_ps = [0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 0.99]
-
-for temperature in temperatures:
-    for top_p in top_ps:
-        result = conditional_composition(model, tokenizer, composition, temperature, top_p)
-        with open(f"outputs/{save_folder_name}/{composition}_{temperature}_{top_p}.cif", "w") as f:
-            f.write(result["cif"])
-        print(f"Saved {composition}_{temperature}_{top_p}.cif")
