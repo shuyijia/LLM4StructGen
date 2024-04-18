@@ -20,7 +20,7 @@ def parse_fn(gen_str):
     
     return structure.to(fmt="cif")
 
-def generate(model, tokenizer, batch, temperature, top_p):
+def generate(model, tokenizer, batch, temperature, top_p, max_new_tokens=512):
     """
     generate a batch of structures
     """
@@ -28,7 +28,7 @@ def generate(model, tokenizer, batch, temperature, top_p):
     generated_ids = model.generate(
         **batch,
         do_sample=True,
-        max_new_tokens=512,
+        max_new_tokens=max_new_tokens,
         temperature=temperature, 
         top_p=top_p, 
     )

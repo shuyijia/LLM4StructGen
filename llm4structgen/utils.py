@@ -159,7 +159,7 @@ class ModelConfig:
     warmup_ratio: int = 0.03
     num_warmup_steps: int = 100
     weight_decay: float = 0.0
-    eval_freq: int = 1000
+    eval_freq: int = 500
     save_freq: int = 500
     log_freq: int = 1
     format_permute_composition: bool = False
@@ -167,3 +167,4 @@ class ModelConfig:
     w_attributes: bool = True
     resume_dir: Path = None
     task_probabilities: dict = None
+    add_perturbed_example: bool = False

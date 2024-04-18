@@ -7,19 +7,17 @@ from peft import LoraConfig
 from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
 
-os.environ["WANDB_PROJECT"] = "internal-coordinates"
-
 args = ModelConfig(
-    run_name="sft-cif-7b-15epochs-unconditional-resume-from-10epochs",
+    run_name="noisy-sample-test",
     model_name="7b",
     batch_size=4,
     num_epochs=10,
     dataset_type="cif",
     data_path=Path("data/mp20-cif/"),
+    add_perturbed_example=True,
     w_attributes=False, # unconditional generation
-    task_probabilities={"generation": 1., "infill": 0.} # only generation task
+    task_probabilities={"perturbation":1/3., "generation": 2/3., "infill": 0.} # only generation task
 )
-
 output_dir = args.expdir / args.run_name
 output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,10 +74,6 @@ trainer = SFTTrainer(
     packing=True
 )
 
-print(args)
-
-resume_dir = "exp/sft-cif-7b-10epochs-unconditional/checkpoint-67500/"
-train_result = trainer.train(resume_from_checkpoint=resume_dir)
+train_result = trainer.train()
 trainer.save_state()
 trainer.save_model()
-

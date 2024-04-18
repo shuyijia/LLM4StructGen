@@ -12,7 +12,7 @@ from torch.utils.data import Dataset
 
 from llm4structgen.constants import *
 
-def get_crystal_string(cif_str):
+def get_crystal_string(cif_str, perturb=False):
     structure = Structure.from_str(cif_str, fmt="cif")
 
     # Randomly translate within the unit cell
@@ -34,6 +34,22 @@ def get_crystal_string(cif_str):
             ]) for t,c in zip(atom_ids, frac_coords)
         ])
 
+    if perturb:
+        frac_coords = np.array(frac_coords)
+        frac_coords += np.random.normal(size=frac_coords.shape) * 0.1
+        frac_coords = np.clip(frac_coords, 0, 1)
+
+        perturbed_crystal_str = \
+            " ".join(["{0:.1f}".format(x) for x in lengths]) + "\n" + \
+            " ".join([str(int(x)) for x in angles]) + "\n" + \
+            "\n".join([
+                str(t) + "\n" + " ".join([
+                    "{0:.2f}".format(x) for x in c
+                ]) for t,c in zip(atom_ids, frac_coords)
+            ])
+        
+        return crystal_str, perturbed_crystal_str
+
     return crystal_str
 
 class CartesianDataset(Dataset):
@@ -44,6 +60,7 @@ class CartesianDataset(Dataset):
         llama_tokenizer=None,
         w_attributes=False,
         task_probabilities=None,
+        add_perturbed_example=False,
     ):
         super().__init__()
 
@@ -55,14 +72,80 @@ class CartesianDataset(Dataset):
         self.llama_tokenizer = llama_tokenizer
         self.format_options = format_options
         self.w_attributes = w_attributes
+        self.add_perturbed_example = add_perturbed_example
 
         if task_probabilities is None:
             task_probabilities = {"generation": 2/3., "infill": 1/3.}
         self.task_probabilities = task_probabilities
    
-    def crystal_string(self, input_dict):
+    def crystal_string(self, input_dict, perturb=False):
         k = 'cif' if 'cif' in input_dict else 'cif_str'
-        return get_crystal_string(input_dict[k])
+        return get_crystal_string(input_dict[k], perturb=perturb)
+    
+    def generation_with_perturbation_task(self, input_dict):
+        prompt = (
+            "Below is a description of a bulk material containing "
+            "the lengths and angles of the lattice vectors and the element "
+            "type and coordinates for each atom within the lattice. "
+            "However, gaussian noises have been added to each coordinate:"
+        )
+
+        crystal_str, perturbed_crystal_str = self.crystal_string(input_dict, perturb=True)
+        end_prompt = (
+            "Use the above noisy version of the bulk material to complete the following task:\n"
+        )
+
+        prompt = prompt + "\n" + perturbed_crystal_str + "\n" + end_prompt
+        prompt = prompt + self.generation_prompt(input_dict) + crystal_str + self.llama_tokenizer.eos_token
+
+        tokens = self.llama_tokenizer(
+            prompt,
+            return_tensors="pt",
+            max_length=MAX_LENGTH,
+            truncation=True,
+        )
+
+        return tokens
+
+    def generation_prompt(self, input_dict):
+        prompt = "Below is a description of a bulk material. "
+        
+        all_attributes = [
+            "formation_energy_per_atom",
+            "band_gap",
+            "e_above_hull",
+            "spacegroup.number",
+        ]
+
+        # sample a random collection of attributes
+        num_attributes = random.randint(0, len(all_attributes))
+        if num_attributes > 0 and self.w_attributes:
+            attributes = random.sample(all_attributes, num_attributes)
+            attributes = ["pretty_formula"] + attributes
+
+            prompt_lookup = {
+                "formation_energy_per_atom": "The formation energy per atom is",
+                "band_gap": "The band gap is",
+                "pretty_formula": "The chemical formula is",
+                "e_above_hull": "The energy above the convex hull is",
+                "elements": "The elements are",
+                "spacegroup.number": "The spacegroup number is",
+            }
+
+            for attr in attributes:
+                if attr == "elements":
+                    prompt += f"{prompt_lookup[attr]} {', '.join(input_dict[attr])}. "
+                elif attr in ["formation_energy_per_atom", "band_gap", "e_above_hull"]:
+                    prompt += f"{prompt_lookup[attr]} {round(float(input_dict[attr]), 4)}. "
+                else:
+                    prompt += f"{prompt_lookup[attr]} {input_dict[attr]}. "
+
+        prompt += (
+            "Generate a description of the lengths and angles of the lattice vectors "
+            "and then the element type and coordinates for each atom within the lattice:\n"
+        )
+
+        return prompt
 
     def generation_task(self, input_dict):
         prompt = "Below is a description of a bulk material. "
@@ -149,10 +232,18 @@ class CartesianDataset(Dataset):
 
     def tokenize(self, input_dict):
         random_val = random.random()
-        if random_val < self.task_probabilities["generation"]:
-            tokens = self.generation_task(input_dict)
+        if "perturbation" in self.task_probabilities:
+            if random_val < self.task_probabilities["perturbation"]:
+                tokens = self.generation_with_perturbation_task(input_dict)
+            elif random_val < self.task_probabilities["perturbation"] + self.task_probabilities["generation"]:
+                tokens = self.generation_task(input_dict)
+            else:
+                tokens = self.infill_task(input_dict)
         else:
-            tokens = self.infill_task(input_dict)
+            if random_val < self.task_probabilities["generation"]:
+                tokens = self.generation_task(input_dict)
+            else:
+                tokens = self.infill_task(input_dict)
 
         input_ids = labels = tokens.input_ids[0]
         input_ids_lens = labels_lens = tokens.input_ids.ne(
