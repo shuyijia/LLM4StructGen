@@ -3,7 +3,49 @@ import numpy as np
 from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
 
-def zmatrix2struct(zmatrix):
+def struct2zmatrix(positions, cell, atomic_symbols, decimals=2, string=True):    
+    zmatrix = []
+    
+    #Insert dummy atoms
+    temp = Atoms(
+        symbols=atomic_symbols, positions=positions,
+        cell=cell,
+        pbc=(True, True, True)
+    )
+    atomic_symbols.insert(0, "Fm")
+    atomic_symbols.insert(0, "Fm")
+    atomic_symbols.insert(0, "Fm")
+    positions = temp.get_scaled_positions()
+    positions = np.insert(positions, 0, np.array([0.0,0.3,0.0]), axis=0)
+    positions = np.insert(positions, 0, np.array([0.3,0.0,0.0]), axis=0)
+    positions = np.insert(positions, 0, np.array([0.0,0.0,0.0]), axis=0)
+    temp_2 = Atoms(
+        symbols=atomic_symbols, scaled_positions=positions,
+        cell=cell,
+        pbc=(True, True, True)
+    )
+    positions = temp_2.get_positions()        
+    #convert cell into format of (a, b, c, alpha, beta, gamma)
+    lattice_params = temp_2.cell.cellpar()
+    for item in lattice_params:
+        zmatrix.append(round(item, decimals))
+    #compute internal coordinates with ASE
+    for i in range(0, len(temp_2)):
+        zmatrix.append(atomic_symbols[i])
+        if i > 0:
+            zmatrix.append(round(temp_2.get_distance(i-1, i, mic=False), decimals))
+        if i > 1:
+            zmatrix.append(round(temp_2.get_angle(i-2, i-1, i, mic=False), decimals))
+        if i > 2:
+            zmatrix.append(round(temp_2.get_dihedral(i-3, i-2, i-1, i, mic=False), decimals))        
+            
+    if string == True:
+        zmatrix = [str(element) for element in zmatrix]
+        zmatrix = " ".join(zmatrix) 
+           
+    return zmatrix
+
+def zmatrix2struct(zmatrix, return_ase=False):
     zmatrix = [float(e) if e.replace('.', '', 1).isdigit() else str(e) for e in zmatrix.split()]
 
     # find length of structure
@@ -97,5 +139,46 @@ def zmatrix2struct(zmatrix):
         pbc=(True, True, True)
     )
 
+    if return_ase:
+        return structure
+
     pymatgen_structure = AseAtomsAdaptor.get_structure(structure)
     return pymatgen_structure.to(fmt="cif")
+
+
+def format_zmatrix_str(zmatrix_str):
+    out = []
+    tokens = zmatrix_str.split(' ')
+
+    # lattice
+    lattice_lens = tokens[:3]
+    lattice_angles = [round(float(x)) for x in tokens[3:6]]
+    out.append(' '.join(lattice_lens))
+    out.append(' '.join(map(str, lattice_angles)))
+
+    tokens = tokens[6:]
+
+    # atoms
+    temp = []
+    for t in tokens:
+        if t.isalpha():
+            if temp:
+                out.append(' '.join(temp))
+                temp = []
+            out.append(t)
+        else:
+            if len(temp) == 0:
+                # round to 1 decimals if it is between 0 and 10
+                if 0 < float(t) < 10:
+                    temp.append(str(round(float(t), 1)))
+                else:
+                    # round to integer
+                    temp.append(str(round(float(t))))
+            else:
+                # round to integer
+                temp.append(str(round(float(t))))
+
+    if temp:
+        out.append(' '.join(temp))
+
+    return '\n'.join(out)

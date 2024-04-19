@@ -12,6 +12,7 @@ import transformers
 from torch.utils.data import Dataset
 
 from llm4structgen.constants import *
+from llm4structgen.zmatrix import *
 
 class InternalCoordinatesDataset(Dataset):
     def __init__(
@@ -21,6 +22,7 @@ class InternalCoordinatesDataset(Dataset):
         llama_tokenizer=None,
         w_attributes=False,
         task_probabilities=None,
+        add_perturbed_example=False,
     ):
         super().__init__()
 
@@ -32,10 +34,101 @@ class InternalCoordinatesDataset(Dataset):
         self.llama_tokenizer = llama_tokenizer
         self.format_options = format_options
         self.w_attributes = w_attributes
+        self.add_perturbed_example = add_perturbed_example
 
         if task_probabilities is None:
             task_probabilities = {"generation": 2/3., "infill": 1/3.}
         self.task_probabilities = task_probabilities
+
+    def get_zmatrix_string(self, input_dict, perturb=False):
+        atoms = zmatrix2struct(input_dict["zmatrix"], return_ase=True)
+
+        cell = atoms.get_cell()
+        chemical_symbols = atoms.get_chemical_symbols()
+        positions = atoms.get_positions()
+
+        if perturb:
+            _min, _max = np.min(positions), np.max(positions)
+            positions += np.random.normal(size=positions.shape) * 0.1
+            positions = np.clip(positions, _min, _max)
+
+        zmatrix = struct2zmatrix(positions, cell, chemical_symbols)
+        return format_zmatrix_str(zmatrix)
+
+    def generation_with_perturbation_task(self, input_dict):
+        prompt = (
+            "Below is a description of a bulk material containing "
+            "the lengths and angles of the lattice vectors and the element "
+            "type and its distance, bond angle and dihedral angle for each atom within the lattice. "
+            "However, gaussian noises have been added to each of the distance, bond angle and dihedral angle:"
+        )
+
+        perturbed_zmatrix_str = self.get_zmatrix_string(input_dict, perturb=True)
+        zmatrix_str = self.get_zmatrix_string(input_dict)
+
+        end_prompt = (
+            "Use the above noisy version of the bulk material to complete the following task:\n"
+        )
+
+        prompt = prompt + "\n" + perturbed_zmatrix_str + "\n" + end_prompt
+        prompt = prompt + self.generation_prompt(input_dict) + zmatrix_str + self.llama_tokenizer.eos_token
+
+        tokens = self.llama_tokenizer(
+            prompt,
+            return_tensors="pt",
+            max_length=MAX_LENGTH,
+            truncation=True,
+        )
+
+        return tokens
+    
+    def generation_prompt(self, input_dict):
+        prompt = (
+            "Below is a description of a bulk material where each atom is "
+            "described by its element type and three attributes: "
+            "1. distance to the previous atom, "
+            "2. angle to the previous two atoms, " 
+            "3. dihedral angle to the previous three atoms. "
+            "The first three Fm atoms are dummies that help define the rest of the material. "
+        )
+        
+        all_attributes = [
+            "formation_energy_per_atom",
+            "band_gap",
+            "e_above_hull",
+            "spacegroup.number",
+        ]
+
+        # sample a random collection of attributes
+        num_attributes = random.randint(0, len(all_attributes))
+        if num_attributes > 0 and self.w_attributes:
+            attributes = random.sample(all_attributes, num_attributes)
+            attributes = ["pretty_formula"] + attributes
+
+            prompt_lookup = {
+                "formation_energy_per_atom": "The formation energy per atom is",
+                "band_gap": "The band gap is",
+                "pretty_formula": "The chemical formula is",
+                "e_above_hull": "The energy above the convex hull is",
+                "elements": "The elements are",
+                "spacegroup.number": "The spacegroup number is",
+            }
+
+            for attr in attributes:
+                if attr == "elements":
+                    prompt += f"{prompt_lookup[attr]} {', '.join(input_dict[attr])}. "
+                elif attr in ["formation_energy_per_atom", "band_gap", "e_above_hull"]:
+                    prompt += f"{prompt_lookup[attr]} {round(float(input_dict[attr]), 4)}. "
+                else:
+                    prompt += f"{prompt_lookup[attr]} {input_dict[attr]}. "
+
+        prompt += (
+            "Generate a description of the lengths and angles of the lattice vectors "
+            "and the three dummy Fm atoms, followed by "
+            "the element type and the three attributes for each atom within the lattice:\n"
+        )
+
+        return prompt
 
     def generation_task(self, input_dict):
         prompt = (
@@ -43,7 +136,7 @@ class InternalCoordinatesDataset(Dataset):
             "described by its element type and three attributes: "
             "1. distance to the previous atom, "
             "2. angle to the previous two atoms, " 
-            "3. diheral angle to the previous three atoms. "
+            "3. dihedral angle to the previous three atoms. "
             "The first three Fm atoms are dummies that help define the rest of the material. "
         )
         
