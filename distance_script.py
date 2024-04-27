@@ -24,8 +24,6 @@ for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
         df = pd.concat([pd.read_csv(fn) for fn in glob.glob(original_file_path)])
         df = df.to_dict(orient="records")
 
-        new_df = []
-
         for i, row in enumerate(df):
             structure = Structure.from_str(row["cif"], fmt="cif")
             atom = AseAtomsAdaptor.get_atoms(structure)
@@ -54,9 +52,7 @@ for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
                     line += " " + str(round(distances[i][j].item(), 2))
                 distance_matrix_string += line + "\n"
 
-            new_df.append({
-                "distance_matrix": distance_matrix_string
-            })
+            row["distance_matrix"] = distance_matrix_string
 
-        new_df = pd.DataFrame(new_df)
-        new_df.to_csv(new_file_path, index=False)
+        df = pd.DataFrame(df)
+        df.to_csv(new_file_path, index=False)
