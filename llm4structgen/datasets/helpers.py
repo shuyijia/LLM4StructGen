@@ -4,6 +4,8 @@ import transformers
 
 from llm4structgen.datasets.cartesian_dataset import CartesianDataset
 from llm4structgen.datasets.internal_dataset import InternalCoordinatesDataset
+from llm4structgen.datasets.distance_dataset import DistanceMatrixDataset
+
 from llm4structgen.constants import *
 
 @dataclass
@@ -39,6 +41,8 @@ def get_datasets(args, tokenizer):
         dataset_class = CartesianDataset
     elif args.dataset_type in ["zmatrix", "internal"]:
         dataset_class = InternalCoordinatesDataset
+    elif args.dataset_type in ["distance"]:
+        dataset_class = DistanceMatrixDataset
     else:
         raise ValueError(f"Unknown dataset type: {args.dataset_type}")
 

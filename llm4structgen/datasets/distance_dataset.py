@@ -129,9 +129,9 @@ class DistanceMatrixDataset(Dataset):
     def tokenize(self, input_dict):
         random_val = random.random()
         if random_val < self.task_probabilities["generation"]:
-            tokens = "generation"
+            tokens = self.generation_task(input_dict)
         else:
-            tokens = "infill"
+            tokens = self.infill_task(input_dict)
 
         input_ids = labels = tokens.input_ids[0]
         input_ids_lens = labels_lens = (
