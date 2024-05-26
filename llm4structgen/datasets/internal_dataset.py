@@ -23,6 +23,8 @@ class InternalCoordinatesDataset(Dataset):
         w_attributes=False,
         task_probabilities=None,
         add_perturbed_example=False,
+        permutation_invariance=False,
+        **kwargs
     ):
         super().__init__()
 
@@ -35,12 +37,16 @@ class InternalCoordinatesDataset(Dataset):
         self.format_options = format_options
         self.w_attributes = w_attributes
         self.add_perturbed_example = add_perturbed_example
+        self.permutation_invariance = permutation_invariance
 
         if task_probabilities is None:
             task_probabilities = {"generation": 2/3., "infill": 1/3.}
         self.task_probabilities = task_probabilities
 
     def get_zmatrix_string(self, input_dict, perturb=False):
+        """
+        under dev
+        """
         atoms = zmatrix2struct(input_dict["zmatrix"], return_ase=True)
 
         cell = atoms.get_cell()
@@ -52,7 +58,48 @@ class InternalCoordinatesDataset(Dataset):
             positions += np.random.normal(size=positions.shape) * 0.1
             positions = np.clip(positions, _min, _max)
 
-        zmatrix = struct2zmatrix(positions, cell, chemical_symbols)
+        try:
+            # copy positions
+            _positions = positions.copy()
+            zmatrix = struct2zmatrix(_positions, cell, chemical_symbols)
+        except:
+            _positions = positions.copy()
+            # add very small random noise to positions
+            _positions += np.random.normal(size=_positions.shape) * 1e-5
+            zmatrix = struct2zmatrix(_positions, cell, chemical_symbols)
+
+        return format_zmatrix_str(zmatrix)
+    
+    def get_permuted_zmatrix_string(self, input_dict):
+        """
+        permute the order of atoms
+        """
+        atoms = zmatrix2struct(input_dict["zmatrix"], return_ase=True)
+        cell = atoms.get_cell()
+        chemical_symbols = atoms.get_chemical_symbols()
+        positions = atoms.get_positions()
+
+        # permute the order of atoms
+        # np.random.seed(2024)
+        idx = np.random.permutation(len(chemical_symbols))
+        chemical_symbols = [chemical_symbols[i] for i in idx]
+        positions = positions[idx]
+
+        # try:
+        #     # copy positions
+        #     _positions = positions.copy()
+        #     zmatrix = struct2zmatrix(_positions, cell, chemical_symbols)
+        # except:
+        #     _positions = positions.copy()
+        #     # add very small random noise to positions
+        #     _positions += np.random.normal(size=_positions.shape) * 1e-6
+        #     zmatrix = struct2zmatrix(_positions, cell, chemical_symbols)
+
+        # always add very small random noise to positions
+        _positions = positions.copy()
+        _positions += np.random.normal(size=_positions.shape) * 1e-6
+        zmatrix = struct2zmatrix(_positions, cell, chemical_symbols)
+        
         return format_zmatrix_str(zmatrix)
 
     def generation_with_perturbation_task(self, input_dict):
@@ -63,9 +110,9 @@ class InternalCoordinatesDataset(Dataset):
             "However, gaussian noises have been added to each of the distance, bond angle and dihedral angle:"
         )
 
-        perturbed_zmatrix_str = self.get_zmatrix_string(input_dict, perturb=True)
-        zmatrix_str = self.get_zmatrix_string(input_dict)
-
+        zmatrix_str = input_dict["zmatrix"]
+        perturbed_zmatrix_str = perturb_zmatrix_str(zmatrix_str)
+        
         end_prompt = (
             "Use the above noisy version of the bulk material to complete the following task:\n"
         )
@@ -176,7 +223,10 @@ class InternalCoordinatesDataset(Dataset):
             "the element type and the three attributes for each atom within the lattice:\n"
         )
 
-        crystal_str = input_dict["zmatrix"]
+        if self.permutation_invariance:
+            crystal_str = self.get_permuted_zmatrix_string(input_dict)
+        else:
+            crystal_str = input_dict["zmatrix"]
 
         tokens = self.llama_tokenizer(
             prompt + crystal_str  + self.llama_tokenizer.eos_token,
@@ -199,7 +249,10 @@ class InternalCoordinatesDataset(Dataset):
         species = [str(s) for s in structure.species]
         species_to_remove = random.choice(species)
 
-        crystal_string = input_dict["zmatrix"]
+        if self.permutation_invariance:
+            crystal_string = self.get_permuted_zmatrix_string(input_dict)
+        else:
+            crystal_string = input_dict["zmatrix"]
 
         partial_crystal_str = crystal_string.replace(
             species_to_remove, "[MASK]"
@@ -224,10 +277,18 @@ class InternalCoordinatesDataset(Dataset):
 
     def tokenize(self, input_dict):
         random_val = random.random()
-        if random_val < self.task_probabilities["generation"]:
-            tokens = self.generation_task(input_dict)
+        if "perturbation" in self.task_probabilities:
+            if random_val < self.task_probabilities["perturbation"]:
+                tokens = self.generation_with_perturbation_task(input_dict)
+            elif random_val < self.task_probabilities["perturbation"] + self.task_probabilities["generation"]:
+                tokens = self.generation_task(input_dict)
+            else:
+                tokens = self.infill_task(input_dict)
         else:
-            tokens = self.infill_task(input_dict)
+            if random_val < self.task_probabilities["generation"]:
+                tokens = self.generation_task(input_dict)
+            else:
+                tokens = self.infill_task(input_dict)
 
         input_ids = labels = tokens.input_ids[0]
         input_ids_lens = labels_lens = tokens.input_ids.ne(

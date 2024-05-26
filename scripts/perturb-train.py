@@ -2,7 +2,7 @@ import os
 import torch
 from transformers import TrainingArguments
 from trl import SFTTrainer
-from peft import LoraConfig, PeftModel
+from peft import LoraConfig
 
 from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
@@ -10,18 +10,17 @@ from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDatase
 os.environ["WANDB_PROJECT"] = "internal-coordinates"
 
 args = ModelConfig(
-    run_name="retrain-cif-from10epochs-unconditional-4epochs",
+    run_name="noisy-zmatrix-test",
     model_name="7b",
-    lr=1e-5,
-    batch_size=4,
-    num_epochs=4,
-    dataset_type="cif",
-    data_path=Path("data/mp20-cif/"),
+    batch_size=2,
+    num_epochs=10,
+    dataset_type="zmatrix",
+    data_path=Path("data/mp20-zmatrix/mp-20/"),
+    add_perturbed_example=True,
     w_attributes=False, # unconditional generation
-    task_probabilities={"generation": 1., "infill": 0.} # only generation task
+    task_probabilities={"perturbation":1/3., "generation": 2/3., "infill": 0.} # only generation task
 )
-
-output_dir= args.expdir / args.run_name
+output_dir = args.expdir / args.run_name
 output_dir.mkdir(parents=True, exist_ok=True)
 
 os.environ["ACCELERATE_MIXED_PRECISION"] = "no"
@@ -52,16 +51,15 @@ training_args = TrainingArguments(
     label_names=["crystal_ids"], #this is just to get trainer to behave how I want
 )
 
-# model
 model = get_model(args, training_args.local_rank)
 tokenizer = get_tokenizer(args)
 smart_tokenizer_and_embedding_resize(model, tokenizer)
-model_path = "exp/sft-cif-7b-10epochs-unconditional/checkpoint-67500/"
-model = PeftModel.from_pretrained(model, model_path, device_map={"": training_args.local_rank})
-
-# datasets
 datasets = get_datasets(args, tokenizer)
 data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
+
+for batch in datasets["train"]:
+    # print(batch)
+    break
 
 lora_config = LoraConfig(
     r=args.lora_rank,
@@ -82,9 +80,6 @@ trainer = SFTTrainer(
     packing=True
 )
 
-print(args)
-
 train_result = trainer.train()
 trainer.save_state()
 trainer.save_model()
-

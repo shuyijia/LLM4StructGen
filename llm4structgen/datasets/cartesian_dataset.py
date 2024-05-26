@@ -61,6 +61,7 @@ class CartesianDataset(Dataset):
         w_attributes=False,
         task_probabilities=None,
         add_perturbed_example=False,
+        **kwargs
     ):
         super().__init__()
 

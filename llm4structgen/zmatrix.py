@@ -182,3 +182,33 @@ def format_zmatrix_str(zmatrix_str):
         out.append(' '.join(temp))
 
     return '\n'.join(out)
+
+def perturb_zmatrix_str(zmatrix_str, distance_perturb_factor=0.5, angle_perturb_factor=5):
+    lines = zmatrix_str.split('\n')
+    out = lines[:2]
+
+    for i, line in enumerate(lines[2:]):
+        if line[0].isalpha():
+            out.append(line)
+        else:
+            tokens = line.split(' ')
+            if len(tokens) < 3:
+                out.append(line)
+            else:
+                dist, angle, dihedral = map(float, tokens)
+                _dist = dist + np.random.normal(0, distance_perturb_factor)
+                _angle = angle + np.random.normal(0, angle_perturb_factor)
+                _dihedral = dihedral + np.random.normal(0, angle_perturb_factor)
+
+                if _dist < 10:
+                    _dist = round(_dist, 1)
+                else:
+                    _dist = round(_dist)
+                _dist = max(0, _dist)
+
+                _angle = round(_angle) % 180 
+                _dihedral = round(_dihedral) % 360
+
+                out.append(f'{_dist} {_angle} {_dihedral}')
+    
+    return '\n'.join(out)
