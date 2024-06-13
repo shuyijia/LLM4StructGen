@@ -2,7 +2,7 @@ import os
 import torch
 from transformers import TrainingArguments
 from trl import SFTTrainer
-from peft import LoraConfig, PeftModel
+from peft import LoraConfig
 
 from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
@@ -10,18 +10,17 @@ from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDatase
 os.environ["WANDB_PROJECT"] = "internal-coordinates"
 
 args = ModelConfig(
-    run_name="retrain-cif-from10epochs-unconditional-4epochs",
+    run_name="sft-cif-7b-15epochs-unconditional-resume-from-10epochs",
     model_name="7b",
-    lr=1e-5,
     batch_size=4,
-    num_epochs=4,
+    num_epochs=10,
     dataset_type="cif",
     data_path=Path("data/mp20-cif/"),
     w_attributes=False, # unconditional generation
     task_probabilities={"generation": 1., "infill": 0.} # only generation task
 )
 
-output_dir= args.expdir / args.run_name
+output_dir = args.expdir / args.run_name
 output_dir.mkdir(parents=True, exist_ok=True)
 
 os.environ["ACCELERATE_MIXED_PRECISION"] = "no"
@@ -52,14 +51,9 @@ training_args = TrainingArguments(
     label_names=["crystal_ids"], #this is just to get trainer to behave how I want
 )
 
-# model
 model = get_model(args, training_args.local_rank)
 tokenizer = get_tokenizer(args)
 smart_tokenizer_and_embedding_resize(model, tokenizer)
-model_path = "exp/sft-cif-7b-10epochs-unconditional/checkpoint-67500/"
-model = PeftModel.from_pretrained(model, model_path, device_map={"": training_args.local_rank})
-
-# datasets
 datasets = get_datasets(args, tokenizer)
 data_collator = DataCollatorForSupervisedDataset(tokenizer=tokenizer)
 
