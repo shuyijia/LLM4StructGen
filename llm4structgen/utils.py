@@ -168,4 +168,4 @@ class ModelConfig:
     resume_dir: Path = None
     task_probabilities: dict = None
     add_perturbed_example: bool = False
-    permutation_invariant: bool = False
+

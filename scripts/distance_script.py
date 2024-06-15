@@ -13,8 +13,7 @@ from llm4structgen.distance import get_distances, get_pbc_offsets, struct2distan
 original_directory = "./data/mp20-cif/"
 new_directory = "./data/mp20-distance-matrix/"
 
-if not os.path.exists(new_directory):
-    os.makedirs(new_directory)
+os.makedirs(new_directory, exist_ok=True)
 
 for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
     filename = os.path.basename(original_file_path)
@@ -26,13 +25,10 @@ for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
 
         for i, row in enumerate(df):
             structure = Structure.from_str(row["cif"], fmt="cif")
-            distance_matrix_string = struct2distance_matrix(structure, permute=False)
             distance_matrix_string_permuted = struct2distance_matrix(structure, permute=True)
 
-            # row["distance_matrix"] = distance_matrix_string
-            print("Normal: ", distance_matrix_string)
-            print("Permuted: ", distance_matrix_string_permuted)
+            row["distance_matrix"] = distance_matrix_string_permuted
 
 
-        # df = pd.DataFrame(df)
-        # df.to_csv(new_file_path, index=False)
+        df = pd.DataFrame(df)
+        df.to_csv(new_file_path, index=False)
