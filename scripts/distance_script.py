@@ -8,7 +8,7 @@ import os
 
 import torch
 
-from llm4structgen.distance import get_distances, get_pbc_offsets
+from llm4structgen.distance import get_distances, get_pbc_offsets, struct2distance_matrix
 
 original_directory = "./data/mp20-cif/"
 new_directory = "./data/mp20-distance-matrix/"
@@ -26,33 +26,13 @@ for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
 
         for i, row in enumerate(df):
             structure = Structure.from_str(row["cif"], fmt="cif")
-            atom = AseAtomsAdaptor.get_atoms(structure)
-            symbols = atom.get_chemical_symbols()
-            lengths = structure.lattice.parameters[:3]
-            angles = structure.lattice.parameters[3:]
+            distance_matrix_string = struct2distance_matrix(structure, permute=False)
+            distance_matrix_string_permuted = struct2distance_matrix(structure, permute=True)
 
-            positions = atom.get_positions()
-            cell = atom.get_cell()
+            # row["distance_matrix"] = distance_matrix_string
+            print("Normal: ", distance_matrix_string)
+            print("Permuted: ", distance_matrix_string_permuted)
 
-            if isinstance(cell, ase.cell.Cell):
-                cell = np.array(cell)
 
-            pbc_offsets = get_pbc_offsets(cell, 3, device="cpu")
-            distances, _ = get_distances(positions, pbc_offsets, device="cpu")
-
-            # Create the distance matrix string and add the 3 lattice lengths and angles at the top
-            distance_matrix_string = \
-                " ".join(["{0:.1f}".format(x) for x in lengths]) + "\n" + \
-                " ".join([str(round(x)) for x in angles]) + "\n"
-
-            # Add the lower triangular portion of the distance matrix along with the atom symbols for each row of the matrix
-            for i in range(len(distances)):
-                line = symbols[i]
-                for j in range(i):
-                    line += " " + str(round(distances[i][j].item(), 2))
-                distance_matrix_string += line + "\n"
-
-            row["distance_matrix"] = distance_matrix_string
-
-        df = pd.DataFrame(df)
-        df.to_csv(new_file_path, index=False)
+        # df = pd.DataFrame(df)
+        # df.to_csv(new_file_path, index=False)

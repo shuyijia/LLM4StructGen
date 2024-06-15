@@ -1,5 +1,50 @@
 import torch, itertools
 import numpy as np
+import ase
+import numpy as np
+from ase import Atoms
+from pymatgen.io.ase import AseAtomsAdaptor
+from pymatgen.core.structure import Structure
+
+
+def struct2distance_matrix(structure, permute=False):
+    atom = AseAtomsAdaptor.get_atoms(structure)
+    symbols = atom.get_chemical_symbols()
+    lengths = structure.lattice.parameters[:3]
+    angles = structure.lattice.parameters[3:]
+
+    positions = atom.get_positions()
+    cell = atom.get_cell()
+    chemical_symbols = atom.get_chemical_symbols()
+
+    if permute:
+        idx = np.random.permutation(len(chemical_symbols))
+        chemical_symbols = [chemical_symbols[i] for i in idx]
+        positions = positions[idx]
+
+    if isinstance(cell, ase.cell.Cell):
+        cell = np.array(cell)
+
+    pbc_offsets = get_pbc_offsets(cell, 3, device="cpu")
+    distances, _ = get_distances(positions, pbc_offsets, device="cpu")
+
+    # Create the distance matrix string and add the 3 lattice lengths and angles at the top
+    distance_matrix_string = (
+        " ".join(["{0:.1f}".format(x) for x in lengths])
+        + "\n"
+        + " ".join([str(round(x)) for x in angles])
+        + "\n"
+    )
+
+    # Add the lower triangular portion of the distance matrix along with the atom symbols for each row of the matrix
+    for i in range(len(distances)):
+        line = symbols[i]
+        for j in range(i):
+            line += " " + str(round(distances[i][j].item(), 2))
+        distance_matrix_string += line + "\n"
+
+    return distance_matrix_string
+
 
 def get_distances(positions, pbc_offsets, device):
     """
