@@ -53,7 +53,7 @@ def get_datasets(args, tokenizer):
             llama_tokenizer=tokenizer,
             w_attributes=args.w_attributes,
             task_probabilities=args.task_probabilities,
-            add_perturbed_example=args.add_perturbed_example,
+            add_perturbed_example=args.add_perturbed_example
         ),
         "val": dataset_class(
             str(args.data_path / "val.csv"),
@@ -61,7 +61,7 @@ def get_datasets(args, tokenizer):
             llama_tokenizer=tokenizer,
             w_attributes=args.w_attributes,
             task_probabilities=args.task_probabilities,
-            add_perturbed_example=args.add_perturbed_example,
+            add_perturbed_example=args.add_perturbed_example
         ),
     }
 

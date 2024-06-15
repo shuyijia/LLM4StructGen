@@ -38,7 +38,7 @@ class DistanceMatrixDataset(Dataset):
             task_probabilities = {"generation": 2 / 3.0, "infill": 1 / 3.0}
         self.task_probabilities = task_probabilities
 
-    def get_distance_matrix_string(self, input_dict, permute=False):
+    def get_distance_matrix_string(self, input_dict):
         distance_matrix = input_dict["distance_matrix"]
         return distance_matrix
 
