@@ -1,14 +1,9 @@
 import glob
-import ase
-import numpy as np
 import pandas as pd
 from pymatgen.core.structure import Structure
-from pymatgen.io.ase import AseAtomsAdaptor
 import os
 
-import torch
-
-from llm4structgen.distance import get_distances, get_pbc_offsets, struct2distance_matrix
+from llm4structgen.distance import struct2distance_matrix
 
 original_directory = "./data/mp20-cif/"
 new_directory = "./data/mp20-distance-matrix/"
@@ -25,10 +20,9 @@ for original_file_path in glob.glob(os.path.join(original_directory, "*.csv")):
 
         for i, row in enumerate(df):
             structure = Structure.from_str(row["cif"], fmt="cif")
-            distance_matrix_string_permuted = struct2distance_matrix(structure, permute=True)
+            distance_matrix_string = struct2distance_matrix(structure, permute=False)
 
-            row["distance_matrix"] = distance_matrix_string_permuted
-
+            row["distance_matrix"] = distance_matrix_string
 
         df = pd.DataFrame(df)
         df.to_csv(new_file_path, index=False)

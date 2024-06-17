@@ -17,6 +17,7 @@ def struct2distance_matrix(structure, permute=False):
     cell = atom.get_cell()
     chemical_symbols = atom.get_chemical_symbols()
 
+    # permutes positions before calculating distances
     if permute:
         idx = np.random.permutation(len(chemical_symbols))
         chemical_symbols = [chemical_symbols[i] for i in idx]

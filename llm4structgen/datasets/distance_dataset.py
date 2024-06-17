@@ -9,7 +9,7 @@ from pymatgen.core.structure import Structure
 from torch.utils.data import Dataset
 
 from llm4structgen.constants import *
-
+from llm4structgen.distance import struct2distance_matrix
 
 class DistanceMatrixDataset(Dataset):
     def __init__(
@@ -38,8 +38,10 @@ class DistanceMatrixDataset(Dataset):
             task_probabilities = {"generation": 2 / 3.0, "infill": 1 / 3.0}
         self.task_probabilities = task_probabilities
 
-    def get_distance_matrix_string(self, input_dict):
-        distance_matrix = input_dict["distance_matrix"]
+    def get_distance_matrix_string(self, input_dict, permute=False):
+        struct = Structure.from_str(input_dict["cif"], fmt="cif")
+        distance_matrix = struct2distance_matrix(struct, permute=permute)
+
         return distance_matrix
 
     def generation_task(self, input_dict):
@@ -84,7 +86,7 @@ class DistanceMatrixDataset(Dataset):
             "resembling the lower triangular portion of a distance matrix:\n"
         )
 
-        crystal_str = input_dict["distance_matrix"]
+        crystal_str = self.get_distance_matrix_string(input_dict, permute=True)
 
         tokens = self.llama_tokenizer(
             prompt + crystal_str + self.llama_tokenizer.eos_token,
@@ -106,7 +108,7 @@ class DistanceMatrixDataset(Dataset):
         species = [str(s) for s in structure.species]
         species_to_remove = random.choice(species)
 
-        crystal_string = input_dict["distance_matrix"]
+        crystal_string = self.get_distance_matrix_string(input_dict, permute=True)
 
         partial_crystal_string = crystal_string.replace(species_to_remove, "[MASK]")
 

@@ -7,17 +7,17 @@ from peft import LoraConfig
 from llm4structgen.utils import *
 from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDataset
 
-os.environ["WANDB_PROJECT"] = "internal-coordinates"
+os.environ["WANDB_PROJECT"] = "distance-matrix"
 
 args = ModelConfig(
-    run_name="sft-cif-7b-15epochs-unconditional-resume-from-10epochs",
+    run_name="sft-distance-matrix-unconditional-permutation-7b-10epochs",
     model_name="7b",
-    batch_size=4,
+    batch_size=2,
     num_epochs=10,
-    dataset_type="cif",
-    data_path=Path("data/mp20-cif/"),
-    w_attributes=False, # unconditional generation
-    task_probabilities={"generation": 1., "infill": 0.} # only generation task
+    dataset_type="distance",
+    data_path=Path("data/mp20-distance-matrix/"),
+    w_attributes=False,  # unconditional generation
+    task_probabilities={"generation": 1.0, "infill": 0.0},  # only generation task
 )
 
 output_dir = args.expdir / args.run_name
@@ -81,4 +81,3 @@ print(args)
 train_result = trainer.train()
 trainer.save_state()
 trainer.save_model()
-
