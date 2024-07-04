@@ -163,16 +163,10 @@ cython_debug/
 .DS_Store
 
 # ignore data/
-data/
 exp/
-exp/**/*
 wandb/
-wandb/**/*
 checkpoints/
-checkpoints/**/*
 outputs/
-outputs/**/*
 archives/
-archives/**/*
 
 *.out
