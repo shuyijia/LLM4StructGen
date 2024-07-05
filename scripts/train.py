@@ -10,12 +10,12 @@ from llm4structgen.datasets import get_datasets, DataCollatorForSupervisedDatase
 os.environ["WANDB_PROJECT"] = "distance-matrix"
 
 args = ModelConfig(
-    run_name="sft-distance-matrix-unconditional-permutation-7b-10epochs",
+    run_name="sft-distance-matrix-otf-permutation-7b-10epochs",
     model_name="7b",
     batch_size=2,
     num_epochs=10,
     dataset_type="distance",
-    data_path=Path("data/mp20-distance-matrix/"),
+    data_path=Path("data/mp20-cif/"),
     w_attributes=False,  # unconditional generation
     task_probabilities={"generation": 1.0, "infill": 0.0},  # only generation task
 )
