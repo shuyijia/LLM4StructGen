@@ -13,3 +13,12 @@ Below is a description of a bulk material. <attributes> Generate a description \
 of the lengths and angles of the lattice vectors and then the element type and \
 coordinates for each atom within the lattice:
 """
+
+DISTANCE_MATRIX_GENERATION_PROMPT_HEADER = """
+Below is a description of a bulk material where each atom is described by its \
+element type and distances to the preceding atoms. <attributes> \
+Generate a description of the lengths and angles of the lattice vectors, \
+followed by the element type and distances for each atom within the lattice, \
+ensuring that each atom solely references distances to preceding atoms, \
+resembling the lower triangular portion of a distance matrix:
+"""
