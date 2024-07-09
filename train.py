@@ -10,10 +10,12 @@ from llm4structgen.datasets.base_dataset import BaseDataset
 from llm4structgen.utils import parse_attributes
 from llm4structgen.datasets.prompts import *
 from llm4structgen.llms.llama2_utils import *
-from llm4structgen.representations.z_matrix import ZMatrix
+from llm4structgen.representations import *
 from llm4structgen.datasets.collators import DataCollatorForSupervisedDataset
 
 os.environ["WANDB_PROJECT"] = "llm4structgen"
+
+torch.autograd.set_detect_anomaly(True)
 
 def main(args):
     # create output directory
@@ -33,7 +35,7 @@ def main(args):
         eval_steps=args.eval_freq,
         save_steps=args.save_freq,
         logging_steps=10,
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         per_device_train_batch_size=args.batch_size,
         per_device_eval_batch_size=args.batch_size,
         learning_rate=args.lr,
@@ -55,7 +57,7 @@ def main(args):
     smart_tokenizer_and_embedding_resize(model, tokenizer)
     
     # get dataset
-    encoder = ZMatrix(args.translate, args.rotate, args.permute)
+    encoder = Cartesian(args.translate, args.rotate, args.permute)
 
     train_dataset = BaseDataset(
         data_dir=args.train_data,

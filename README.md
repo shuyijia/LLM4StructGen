@@ -6,7 +6,21 @@ Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 pip install -e .
 ```
 
-Full environment setup instruction coming soon.
+### Environment Setup
+```
+conda create -n llm4structgen python=3.10
+conda activate llm4structgen
+
+# mamba for faster solve
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+
+# finetuning
+pip install transformers wandb trl peft pymatgen bitsandbytes sentencepiece
+
+# SLICES
+pip install tensorflow==2.15.0
+pip install slices
+```
 
 ### Supported Representations
 - [x] Cartesian (CIF)
