@@ -3,6 +3,7 @@ import numpy as np
 from ase import Atoms
 
 from .base_representation import BaseRepresentation
+from llm4structgen.datasets.prompts import DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
 
 class DistanceMatrix(BaseRepresentation):
     def __init__(
@@ -40,6 +41,10 @@ class DistanceMatrix(BaseRepresentation):
     
     def decode(self, input_str: str) -> Atoms:
         return distance_matrix2struct(input_str)
+    
+    @property
+    def prompt_header(self):
+        return DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
     
 def struct2distance_matrix(
     atomic_symbols,

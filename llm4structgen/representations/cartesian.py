@@ -4,6 +4,7 @@ from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
 
 from .base_representation import BaseRepresentation
+from llm4structgen.datasets.prompts import CARTESIAN_GENERATION_PROMPT_HEADER
 
 class Cartesian(BaseRepresentation):
     def __init__(
@@ -42,6 +43,9 @@ class Cartesian(BaseRepresentation):
     def decode(self, input_str: str) -> Atoms:
         return cartesian2struct(input_str)
 
+    @property
+    def prompt_header(self):
+        return CARTESIAN_GENERATION_PROMPT_HEADER
 
 def struct2cartesian(
     atomic_symbols, 

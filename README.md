@@ -15,7 +15,7 @@ conda activate llm4structgen
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 
 # finetuning
-pip install transformers wandb trl peft pymatgen bitsandbytes sentencepiece
+pip install transformers wandb trl peft pymatgen bitsandbytes sentencepiece ase
 
 # SLICES
 pip install tensorflow==2.15.0

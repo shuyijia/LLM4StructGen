@@ -10,12 +10,10 @@ from llm4structgen.datasets.base_dataset import BaseDataset
 from llm4structgen.utils import parse_attributes
 from llm4structgen.datasets.prompts import *
 from llm4structgen.llms.llama2_utils import *
-from llm4structgen.representations import *
+from llm4structgen.representations.cartesian import Cartesian
 from llm4structgen.datasets.collators import DataCollatorForSupervisedDataset
 
 os.environ["WANDB_PROJECT"] = "llm4structgen"
-
-torch.autograd.set_detect_anomaly(True)
 
 def main(args):
     # create output directory
@@ -63,7 +61,7 @@ def main(args):
         data_dir=args.train_data,
         tokenizer=tokenizer,
         encoder=encoder,
-        prompt_header=Z_MATRIX_GENERATION_PROMPT_HEADER,
+        prompt_header=CARTESIAN_GENERATION_PROMPT_HEADER,
         duplicate_count=args.duplicate_count,
         attributes=args.attributes,
     )
@@ -72,7 +70,7 @@ def main(args):
         data_dir=args.val_data,
         tokenizer=tokenizer,
         encoder=encoder,
-        prompt_header=Z_MATRIX_GENERATION_PROMPT_HEADER,
+        prompt_header=CARTESIAN_GENERATION_PROMPT_HEADER,
         duplicate_count=args.duplicate_count,
         attributes=args.attributes,
     )

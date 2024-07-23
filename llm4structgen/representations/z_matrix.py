@@ -4,6 +4,7 @@ from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
 
 from .base_representation import BaseRepresentation
+from llm4structgen.datasets.prompts import Z_MATRIX_GENERATION_PROMPT_HEADER
 
 class ZMatrix(BaseRepresentation):
     def __init__(
@@ -38,6 +39,10 @@ class ZMatrix(BaseRepresentation):
     
     def decode(self, input_str: str) -> Atoms:
         return zmatrix2struct(input_str, return_ase=True)
+    
+    @property
+    def prompt_header(self):
+        return Z_MATRIX_GENERATION_PROMPT_HEADER
 
 def struct2zmatrix(atomic_symbols, positions, cell, decimals=2, string=True):    
     zmatrix = []
