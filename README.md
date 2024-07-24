@@ -34,10 +34,13 @@ By default, `wandb` is used for logging.
 #### Modify Configs
 You can copy the template `.yaml` config file and modify the fields in the copy for your training purposes. 
 
-Additionally, you can also modify it in the commandline:
+Additionally, you can also modify it in the command line:
 
 ```
-tune run lora_finetune_single_device --config configs/7B_lora_single_device.yaml batch_size=8
+tune run lora_finetune_single_device \
+    --config configs/7B_lora_single_device.yaml \
+    batch_size=8 \
+    ...
 ```
 
 ### Environment Setup
@@ -62,6 +65,8 @@ pip install ase pymatgen wandb
 pip install tensorflow==2.15.0
 pip install slices
 ```
+
+> DO NOT install `torchtune` via `pip` directly (`pip install torchtune` won't work with our code)
 
 ### Key Updates
 #### 07/24/24 (Shuyi)
