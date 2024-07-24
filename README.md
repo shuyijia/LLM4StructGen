@@ -1,6 +1,12 @@
 # LLM4StructGen
 Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 
+### Supported Representations
+- [x] Cartesian (CIF)
+- [x] Z-matrix
+- [x] Distance matrix
+- [ ] SLICES
+
 ### Usage
 ```
 pip install -e .
@@ -13,7 +19,7 @@ tune download meta-llama/Llama-2-7b-hf \
   --output-dir /tmp/Llama-2-7b-hf \
   --hf-token <ACCESS TOKEN>
 ```
-where `<ACESS TOKEN>` is your HuggingFace authorization token.
+where `<ACCESS TOKEN>` is your HuggingFace authorization token. Note that the `/tmp/` folder is recycled after a session ends.
 
 To start training, do
 
@@ -37,28 +43,29 @@ tune run lora_finetune_single_device --config configs/7B_lora_single_device.yaml
 ### Environment Setup
 ```
 conda create -n llm4structgen python=3.10
-conda activate llm4structgen
+pip install torch torchvision
 
-# mamba for faster solve
-conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+# install torchtune in target folder
+git clone https://github.com/pytorch/torchtune.git
+cd torchtune
+pip install -e .
 
-# finetuning
-pip install transformers wandb trl peft pymatgen bitsandbytes sentencepiece ase
+# install llm4structgen in target folder
+git clone https://github.com/shuyijia/LLM4StructGen.git
+cd LLM4StructGen
+pip install -e .
 
-# SLICES
+# additional packages
+pip install ase pymatgen wandb
+
+# SLICES (not tested)
 pip install tensorflow==2.15.0
 pip install slices
 ```
 
-### Supported Representations
-- [x] Cartesian (CIF)
-- [x] Z-matrix
-- [x] Distance matrix
-- [ ] SLICES
-
 ### Key Updates
 #### 07/24/24 (Shuyi)
-After some experimentation, I decided to use [torchtune](https://github.com/pytorch/torchtune) as a training framework. 
+After some experimentation, I decided to use [torchtune](https://github.com/pytorch/torchtune) as the training framework. 
 
 This allows us to quickly fine-tune LLMs with the following benefits without writing tons of custom codes:
 - several supported fine-tuning techniques, e.g. full fine-tuning, LoRA, QLoRA
