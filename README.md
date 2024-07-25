@@ -40,6 +40,7 @@ Additionally, you can also modify it in the command line:
 tune run lora_finetune_single_device \
     --config configs/7B_lora_single_device.yaml \
     batch_size=8 \
+    dataset.representation_type=distance \
     ...
 ```
 
@@ -61,12 +62,25 @@ pip install -e .
 # additional packages
 pip install ase pymatgen wandb
 
-# SLICES (not tested)
+# SLICES
 pip install tensorflow==2.15.0
 pip install slices
 ```
 
 > DO NOT install `torchtune` via `pip` directly (`pip install torchtune` won't work with our code)
+
+The current installation of `tensorflow==2.15.0` and `slices` will throw the following warnings:
+
+```
+[...] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+[...] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+[...] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+WARNING:tensorflow:
+[...]
+experimental_relax_shapes is deprecated, use reduce_retracing instead
+```
+
+These should have no effect on our use cases.
 
 ### Key Updates
 #### 07/24/24 (Shuyi)

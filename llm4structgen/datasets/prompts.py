@@ -22,3 +22,8 @@ followed by the element type and distances for each atom within the lattice, \
 ensuring that each atom solely references distances to preceding atoms, \
 resembling the lower triangular portion of a distance matrix:
 """
+
+SLICES_GENERATION_PROMPT_HEADER = """
+Below is a description of a bulk material. <attributes> Generate a SLICES string, \
+which is a text-based representation of a crystal material:
+"""

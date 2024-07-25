@@ -1,11 +1,11 @@
-import math
-import numpy as np
+import tensorflow as tf
 from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
 from invcryrep.invcryrep import InvCryRep
-from pymatgen.core.structure import Structure
+from pymatgen.core import Structure
 
 from .base_representation import BaseRepresentation
+from llm4structgen.datasets.prompts import SLICES_GENERATION_PROMPT_HEADER
 
 class SLICES(BaseRepresentation):
     def __init__(
@@ -18,6 +18,16 @@ class SLICES(BaseRepresentation):
         self.translate = translate
         self.rotate = rotate
         self.permute = permute
+
+        # prevent TensorFlow from allocating all available GPU memory at once
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            for gpu in gpus:
+                try:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                except RuntimeError as e:
+                    print(e)
+
         self.backend = InvCryRep()
 
     def encode(
@@ -33,19 +43,24 @@ class SLICES(BaseRepresentation):
         if self.permute:
             atomic_symbols, positions = self._permute(atomic_symbols, positions)
 
-        atoms = Atoms(
-            symbols=atomic_symbols,
-            positions=positions,
-            cell=cell,
-            pbc=(True, True, True),
+        # by default, pymatgen.core.Structure expects fractional coors
+        # positions @ np.linalg.inv(cell)
+        structure = Structure(
+            cell, 
+            atomic_symbols, 
+            positions, 
+            coords_are_cartesian=True
         )
 
-        structure = AseAtomsAdaptor.get_structure(atoms)
-
-        return self.backend.structure2SLICES(structure)
+        slices_str = self.backend.structure2SLICES(structure)
+        return slices_str
     
     def decode(self, input_str: str) -> Atoms:
         structure, final_energy_per_atom_IAP = self.backend.SLICES2structure(input_str)
         atoms = AseAtomsAdaptor.get_atoms(structure)
 
         return atoms
+    
+    @property
+    def prompt_header(self):
+        return SLICES_GENERATION_PROMPT_HEADER

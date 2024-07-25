@@ -47,7 +47,7 @@ dataset:
   _component_: llm4structgen.datasets.torchtune_dataset.text_completion_dataset
   representation_type: cartesian
   source: json
-  data_files: data/dummy/train.json
+  data_files: data/mp-20/train.json
   max_seq_len: 2096
   attributes: False
   translate: False

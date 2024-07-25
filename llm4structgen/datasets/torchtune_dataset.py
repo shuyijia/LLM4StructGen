@@ -17,6 +17,9 @@ from torchtune.datasets._packed import PackedDataset
 from torchtune.modules.tokenizers import ModelTokenizer
 
 from llm4structgen.representations.cartesian import Cartesian
+from llm4structgen.representations.z_matrix import ZMatrix
+from llm4structgen.representations.distance_matrix import DistanceMatrix
+from llm4structgen.representations.slices import SLICES
 
 prompt_lookup = {
     "formation_energy_per_atom": "The formation energy per atom is",
@@ -79,8 +82,28 @@ class TextCompletionDataset(Dataset):
                 permute=permute,
                 decimals=decimals
             )
+        elif self.representation_type == "zmatrix":
+            self.encoder = ZMatrix(
+                translate=translate,
+                rotate=rotate,
+                permute=permute,
+                decimals=decimals
+            )
+        elif self.representation_type == "distance":
+            self.encoder = DistanceMatrix(
+                translate=translate,
+                rotate=rotate,
+                permute=permute,
+                decimals=decimals
+            )
+        elif self.representation_type == "slices":
+            self.encoder = SLICES(
+                translate=translate,
+                rotate=rotate,
+                permute=permute
+            )
         else:
-            raise ValueError("Invalid representation type")
+            raise ValueError("Invalid representation type; must be one of 'cartesian', 'zmatrix', 'distance', or 'slices'")
         
     def load_data(self, source, data_files):
         if source != "json":
