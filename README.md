@@ -5,33 +5,53 @@ Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 - [x] Cartesian (CIF)
 - [x] Z-matrix
 - [x] Distance matrix
-- [ ] SLICES
+- [x] SLICES
 
-### Usage
+### Tested Training
+| Recipe                      | Model       | Cluster                 | GPUs          | Batch Size | VRAM | Time (hrs) |
+|-----------------------------|-------------|-------------------------|---------------|------------|---------------------|----------------------|
+| `lora_finetune_single_device` | LLaMA-2-7B  | Perlmutter login   | 1 x A100 40GB | 4          | 15GB/GPU                | 1-2/epoch                |
+| `lora_finetune_distributed`   | LLaMA-2-13B | Perlmutter compute | 4 x A100 80GB | 2          | 20GB/GPU                | 1 /epoch                   |
+
+## Usage
 ```
 pip install -e .
 ```
 
-#### Sample run (LLaMA-2 with LoRA on Cartesian Representations)
+In general, to train a model in `torchtune` we can do the following:
+
+```
+# single device
+tune run [RECIPE] --config [PATH/TO/YAML]
+
+# distributed 
+# 1 node, 4 GPUs
+tune run --nnodes 1 --nproc_per_node 4 [RECIPE] --config [PATH/TO/YAML]
+```
+
+The first argument, [RECIPE], specifies the template to be used for this run. Recipes can be thought of as pipelines for training or inference. (see more [here](https://pytorch.org/torchtune/main/deep_dives/recipe_deepdive.html)).
+
+> The default logging directory in the config files is set to `exp/logs`. To use the same, do `mkdir -p exp/logs`.
+
+### Sample Run (LLaMA-2 with LoRA on Cartesian Representations)
 First, we need to download checkpoint weights from HuggingFace:
 ```
 tune download meta-llama/Llama-2-7b-hf \
   --output-dir /tmp/Llama-2-7b-hf \
   --hf-token <ACCESS TOKEN>
 ```
-where `<ACCESS TOKEN>` is your HuggingFace authorization token. Note that the `/tmp/` folder is recycled after a session ends.
+where `<ACCESS TOKEN>` is your HuggingFace authorization token. Note that the `/tmp/` folder is recycled after a session ends. You might want to move the weights to the scratch directory or the project space.
 
 To start training, do
 
 ```
-tune run lora_finetune_single_device --config configs/7B_lora_single_device.yaml
+tune run lora_finetune_single_device \
+--config configs/llama2/7B_lora_single_device.yaml
 ```
-
-The first argument, lora_finetune_single_device, specifies the recipe to be used for this run. Recipes can be thought of as pipelines for training or inference. (see more [here](https://pytorch.org/torchtune/main/deep_dives/recipe_deepdive.html)).
 
 By default, `wandb` is used for logging.
 
-#### Modify Configs
+### Modify Configs
 You can copy the template `.yaml` config file and modify the fields in the copy for your training purposes. 
 
 Additionally, you can also modify it in the command line:
