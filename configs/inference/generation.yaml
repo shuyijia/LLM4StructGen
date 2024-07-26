@@ -1,0 +1,47 @@
+# Config for running the InferenceRecipe in generate.py to generate output from an LLM
+#
+# To launch, run the following command from root torchtune directory:
+#    tune run generate --config generation
+
+# Model arguments
+model:
+  _component_: torchtune.models.llama2.llama2_7b
+
+representation_type: cartesian
+
+generation:
+  n_structures: 5
+  batch_size: 1 # no batch inference yet; this is a placeholder 
+  output_dir: exp/outputs
+
+checkpointer:
+  _component_: torchtune.utils.FullModelHFCheckpointer
+  checkpoint_dir: exp/lora-cartesian/
+  checkpoint_files: [
+    hf_model_0001_9.pt,
+    hf_model_0002_9.pt,
+  ]
+  output_dir: exp/outputs
+  model_type: LLAMA2
+
+device: cuda
+dtype: bf16
+
+seed: 
+
+# Tokenizer arguments
+tokenizer:
+  _component_: torchtune.models.llama2.llama2_tokenizer
+  path: /pscratch/sd/s/shuyijia/.cache/huggingface/Llama-2-7b-hf/tokenizer.model
+
+# Generation arguments; defaults taken from gpt-fast
+prompt: "Below is a description of a bulk material. Generate a description of the lengths and angles of the lattice vectors and then the element type and coordinates for each atom within the lattice:"
+instruct_template: null
+chat_format: null
+max_new_tokens: 1024
+temperature: 0.6 # 0.8 and 0.6 are popular values to try
+top_k: 300
+# It is recommended to set enable_kv_cache=False for long-context models like Llama3.1
+enable_kv_cache: True
+
+quantizer: null

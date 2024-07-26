@@ -1,6 +1,11 @@
 # LLM4StructGen
 Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 
+### TO-DOs
+- [] Batch inference
+- [] CDVAE evaluation workflow
+- [] Decoding for distance matrix
+
 ### Supported Representations
 - [x] Cartesian (CIF)
 - [x] Z-matrix
@@ -46,10 +51,24 @@ To start training, do
 
 ```
 tune run lora_finetune_single_device \
---config configs/llama2/7B_lora_single_device.yaml
+--config configs/train/llama2/7B_lora_single_device.yaml
 ```
 
 By default, `wandb` is used for logging.
+
+### Generation
+```
+tune run llm4structgen/generation/inference.py \
+--config configs/inference/generation.yaml \
+generation.n_structures=10 \
+...
+```
+
+You need to modify the checkpoint paths in the yaml file to load the finetuned checkpoints.
+
+Currently, only single-device non-batch inference is supported. 
+
+> Note: The generation script produces only text output. Post-decoding is required to convert these strings into Atoms objects. This decoupling ensures that any parsing errors are handled separately from the generation process.
 
 ### Modify Configs
 You can copy the template `.yaml` config file and modify the fields in the copy for your training purposes. 
@@ -58,13 +77,13 @@ Additionally, you can also modify it in the command line:
 
 ```
 tune run lora_finetune_single_device \
-    --config configs/7B_lora_single_device.yaml \
+    --config configs/train/llama2/7B_lora_single_device.yaml \
     batch_size=8 \
     dataset.representation_type=distance \
     ...
 ```
 
-### Environment Setup
+## Environment Setup
 ```
 conda create -n llm4structgen python=3.10
 pip install torch torchvision
@@ -102,8 +121,8 @@ experimental_relax_shapes is deprecated, use reduce_retracing instead
 
 These should have no effect on our use cases.
 
-### Key Updates
-#### 07/24/24 (Shuyi)
+## Key Updates
+### 07/24/24 (Shuyi)
 After some experimentation, I decided to use [torchtune](https://github.com/pytorch/torchtune) as the training framework. 
 
 This allows us to quickly fine-tune LLMs with the following benefits without writing tons of custom codes:
@@ -112,7 +131,7 @@ This allows us to quickly fine-tune LLMs with the following benefits without wri
 - tested and memory efficient quantization settings
 - distributed training out of the box 
 
-#### 07/04/24 (Shuyi)
+### 07/04/24 (Shuyi)
 - Restructured the entire codebase to enhance extensibility
 - Added support for `translate`, `rotate` and `permute` of data
 - Added support for `duplicity`, which allows duplicating a single sample in the dataset `x` times
