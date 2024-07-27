@@ -4,8 +4,10 @@ import itertools
 import sys
 import time
 import json
+import copy
 from tqdm import tqdm
 from datetime import datetime
+from omegaconf import OmegaConf
 from typing import Any, Dict, List, Optional, Union
 
 import torch
@@ -15,6 +17,8 @@ from torch import nn
 from torchtune import config, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, InstructTemplate, Message
+
+from llm4structgen.generation.unconditional_generation_prompts import *
 
 logger = utils.get_logger("DEBUG")
 
@@ -191,8 +195,19 @@ class Generator:
         # if seed is not set, a random seed is used
         # utils.set_seed(seed=cfg.seed)
 
+        if cfg.prompt is not None:
+            _prompt = cfg.prompt
+        if cfg.representation_type == "cartesian":
+            _prompt = UNCONDITIONAL_CARTESIAN_GENERATION_PROMPT_HEADER
+        elif cfg.representation_type == "distance":
+            _prompt = UNCONDITIONAL_DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
+        elif cfg.representation_type == "slices":
+            _prompt = UNCONDITIONAL_SLICES_GENERATION_PROMPT_HEADER
+        elif cfg.representation_type == "zmatrix":
+            _prompt = UNCONDITIONAL_Z_MATRIX_GENERATION_PROMPT_HEADER
+
         tokens = self.convert_prompt_to_tokens(
-            cfg.prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
+            _prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
         )
         prompt = torch.tensor(tokens, dtype=torch.int, device=self._device)
 
@@ -213,7 +228,7 @@ class Generator:
 
         return output_str
     
-    def generation_loop(self, cfg: DictConfig):
+    def generate_and_save(self, cfg: DictConfig):
         n_structures = cfg.generation.n_structures
         output_dir = cfg.generation.output_dir
         model = cfg.model._component_.split('.')[-1]
@@ -223,24 +238,23 @@ class Generator:
 
         data = []
         for _ in tqdm(range(n_structures)):
-            output_str = self._generate(cfg=cfg)
             data.append(
-                {
-                    "prompt": cfg.prompt,
-                    "output": output_str
-                }
+                self._generate(cfg=cfg)
             )
         
-        with open(fname, "w") as f:
-            json.dump(data, f)
-
+        # save config and generated data as json
+        _cfg = copy.deepcopy(cfg)
+        _cfg.outputs = data
+        _cfg_dict = OmegaConf.to_container(_cfg, resolve=True)
+        with open(fname, 'w') as f:
+            json.dump(_cfg_dict, f)
     
 @config.parse
 def main(cfg: DictConfig) -> None:
     config.log_config(recipe_name="Generator", cfg=cfg)
     recipe = Generator(cfg=cfg)
     recipe.setup(cfg=cfg)
-    recipe.generation_loop(cfg=cfg)
+    recipe.generate_and_save(cfg=cfg)
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -35,7 +35,7 @@ tokenizer:
   path: /pscratch/sd/s/shuyijia/.cache/huggingface/Llama-2-7b-hf/tokenizer.model
 
 # Generation arguments; defaults taken from gpt-fast
-prompt: "Below is a description of a bulk material. Generate a description of the lengths and angles of the lattice vectors and then the element type and coordinates for each atom within the lattice:"
+prompt: null
 instruct_template: null
 chat_format: null
 max_new_tokens: 1024

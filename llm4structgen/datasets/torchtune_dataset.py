@@ -16,11 +16,6 @@ from torchtune.data import truncate
 from torchtune.datasets._packed import PackedDataset
 from torchtune.modules.tokenizers import ModelTokenizer
 
-from llm4structgen.representations.cartesian import Cartesian
-from llm4structgen.representations.z_matrix import ZMatrix
-from llm4structgen.representations.distance_matrix import DistanceMatrix
-from llm4structgen.representations.slices import SLICES
-
 prompt_lookup = {
     "formation_energy_per_atom": "The formation energy per atom is",
     "band_gap": "The band gap is",
@@ -76,6 +71,7 @@ class TextCompletionDataset(Dataset):
 
         # initialize encoder
         if self.representation_type == "cartesian":
+            from llm4structgen.representations.cartesian import Cartesian
             self.encoder = Cartesian(
                 translate=translate,
                 rotate=rotate,
@@ -83,6 +79,7 @@ class TextCompletionDataset(Dataset):
                 decimals=decimals
             )
         elif self.representation_type == "zmatrix":
+            from llm4structgen.representations.z_matrix import ZMatrix
             self.encoder = ZMatrix(
                 translate=translate,
                 rotate=rotate,
@@ -90,6 +87,7 @@ class TextCompletionDataset(Dataset):
                 decimals=decimals
             )
         elif self.representation_type == "distance":
+            from llm4structgen.representations.distance_matrix import DistanceMatrix
             self.encoder = DistanceMatrix(
                 translate=translate,
                 rotate=rotate,
@@ -97,6 +95,7 @@ class TextCompletionDataset(Dataset):
                 decimals=decimals
             )
         elif self.representation_type == "slices":
+            from llm4structgen.representations.slices import SLICES
             self.encoder = SLICES(
                 translate=translate,
                 rotate=rotate,
