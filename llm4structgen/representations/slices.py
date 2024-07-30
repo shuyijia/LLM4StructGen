@@ -81,7 +81,7 @@ class InvCryRepMace(InvCryRep):
         
         struc_ase = self.adaptor.get_atoms(struc)
         struc_ase.calc = self.calculator
-        opt = FIRE(atoms=struc_ase,trajectory='out.traj',logfile=self.log_file)
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
         opt.run(fmax=self.fmax,steps=self.steps)
 
         relaxed_struc = self.adaptor.get_structure(struc_ase)
@@ -95,7 +95,7 @@ class InvCryRepMace(InvCryRep):
 
         struc_ase = self.adaptor.get_atoms(struc)
         struc_ase.calc = self.calculator
-        opt = FIRE(atoms=struc_ase,trajectory='out.traj',logfile=self.log_file)
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
         opt.run(fmax=self.fmax,steps=self.steps)
         
         relaxed_struc = self.adaptor.get_structure(struc_ase)
@@ -108,7 +108,7 @@ class InvCryRepMace(InvCryRep):
 
         struc_ase = self.adaptor.get_atoms(struc)
         struc_ase.calc = self.calculator
-        opt = FIRE(atoms=struc_ase,trajectory='out.traj',logfile=self.log_file)
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
         opt.run(fmax=self.fmax,steps=self.steps)
         
         relaxed_struc = self.adaptor.get_structure(struc_ase)
