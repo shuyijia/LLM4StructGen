@@ -15,12 +15,16 @@ Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 ### Tested Training
 | Recipe                      | Model       | Cluster                 | GPUs          | Batch Size | VRAM | Time (hrs) |
 |-----------------------------|-------------|-------------------------|---------------|------------|---------------------|----------------------|
-| `lora_finetune_single_device` | LLaMA-2-7B  | Perlmutter login   | 1 x A100 40GB | 4          | 15GB/GPU                | 1-2/epoch                |
-| `lora_finetune_distributed`   | LLaMA-2-13B | Perlmutter compute | 4 x A100 80GB | 2          | 20GB/GPU                | 1 /epoch                   |
+| `lora_finetune_single_device` | LLaMA-2-7B  | Perlmutter login   | 1 x A100 40GB | 4          | 15GB/GPU               | 1-2/epoch            |
+| `lora_finetune_distributed`   | LLaMA-2-13B | Perlmutter compute | 4 x A100 80GB | 2          | 20GB/GPU               | 1 /epoch             |
 
 ## Usage
 ```
+# see environment setup below
 pip install -e .
+
+# default logging dir is exp/logs
+mkdir -p exp/logs
 ```
 
 In general, to train a model in `torchtune` we can do the following:
@@ -35,8 +39,6 @@ tune run --nnodes 1 --nproc_per_node 4 [RECIPE] --config [PATH/TO/YAML]
 ```
 
 The first argument, [RECIPE], specifies the template to be used for this run. Recipes can be thought of as pipelines for training or inference. (see more [here](https://pytorch.org/torchtune/main/deep_dives/recipe_deepdive.html)).
-
-> The default logging directory in the config files is set to `exp/logs`. To use the same, do `mkdir -p exp/logs`.
 
 ### Sample Run (LLaMA-2 with LoRA on Cartesian Representations)
 First, we need to download checkpoint weights from HuggingFace:
@@ -89,6 +91,8 @@ conda create -n llm4structgen python=3.10
 pip install torch torchvision
 
 # install torchtune in target folder
+# DO NOT install torchtune via pip directly 
+# pip install torchtune won't work with our code
 git clone https://github.com/pytorch/torchtune.git
 cd torchtune
 pip install -e .
@@ -106,8 +110,6 @@ pip install tensorflow==2.15.0
 pip install slices
 pip install mace-torch
 ```
-
-> DO NOT install `torchtune` via `pip` directly (`pip install torchtune` won't work with our code)
 
 The current installation of `tensorflow==2.15.0` and `slices` will throw the following warnings:
 
