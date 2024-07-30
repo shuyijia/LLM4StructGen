@@ -3,6 +3,10 @@ from ase import Atoms
 from pymatgen.io.ase import AseAtomsAdaptor
 from invcryrep.invcryrep import InvCryRep
 from pymatgen.core import Structure
+from mace.calculators import mace_mp
+from pymatgen.io.ase import AseAtomsAdaptor
+from ase.optimize import FIRE
+from invcryrep.invcryrep import function_timeout
 
 from .base_representation import BaseRepresentation
 from llm4structgen.datasets.prompts import SLICES_GENERATION_PROMPT_HEADER
@@ -28,7 +32,7 @@ class SLICES(BaseRepresentation):
                 except RuntimeError as e:
                     print(e)
 
-        self.backend = InvCryRep()
+        self.backend = InvCryRepMace()
 
     def encode(
         self,
@@ -64,3 +68,49 @@ class SLICES(BaseRepresentation):
     @property
     def prompt_header(self):
         return SLICES_GENERATION_PROMPT_HEADER
+
+class InvCryRepMace(InvCryRep):
+    def __init__(self, **kwargs):
+        super().__init__(kwargs)
+        self.calculator = mace_mp(model="large", dispersion=False, default_dtype="float32", device='cuda')
+        self.adaptor = AseAtomsAdaptor()
+    
+    @function_timeout(seconds=180)
+    def m3gnet_relax(self,struc):
+        """Replaces m3gnet with mace optimization 60s time limit"""
+        
+        struc_ase = self.adaptor.get_atoms(struc)
+        struc_ase.calc = self.calculator
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
+        opt.run(fmax=self.fmax,steps=self.steps)
+
+        relaxed_struc = self.adaptor.get_structure(struc_ase)
+        
+        
+        return relaxed_struc, struc_ase.get_potential_energy()
+
+    @function_timeout(seconds=360)
+    def m3gnet_relax_large_cell1(self,struc):
+        """Replaces m3gnet with mace optimization 360s time limit"""
+
+        struc_ase = self.adaptor.get_atoms(struc)
+        struc_ase.calc = self.calculator
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
+        opt.run(fmax=self.fmax,steps=self.steps)
+        
+        relaxed_struc = self.adaptor.get_structure(struc_ase)
+        
+        return relaxed_struc, struc_ase.get_potential_energy()
+
+    @function_timeout(seconds=1000)
+    def m3gnet_relax_large_cell2(self,struc):
+        """Replaces m3gnet with mace optimization 1000s time limit"""
+
+        struc_ase = self.adaptor.get_atoms(struc)
+        struc_ase.calc = self.calculator
+        opt = FIRE(atoms=struc_ase,trajectory='out.traj')
+        opt.run(fmax=self.fmax,steps=self.steps)
+        
+        relaxed_struc = self.adaptor.get_structure(struc_ase)
+        
+        return relaxed_struc, struc_ase.get_potential_energy()

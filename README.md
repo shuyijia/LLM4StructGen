@@ -104,6 +104,7 @@ pip install ase pymatgen wandb
 # SLICES
 pip install tensorflow==2.15.0
 pip install slices
+pip install mace-torch
 ```
 
 > DO NOT install `torchtune` via `pip` directly (`pip install torchtune` won't work with our code)
