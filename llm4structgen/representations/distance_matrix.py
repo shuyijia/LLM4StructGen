@@ -1,6 +1,10 @@
-import ase
 import numpy as np
 from ase import Atoms
+import torch
+
+from llm4structgen.reconstruction.reconstruction import Reconstruction
+from omegaconf import OmegaConf
+from torchtune import utils
 
 from .base_representation import BaseRepresentation
 from llm4structgen.datasets.prompts import DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
@@ -45,7 +49,7 @@ class DistanceMatrix(BaseRepresentation):
     @property
     def prompt_header(self):
         return DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
-    
+
 def struct2distance_matrix(
     atomic_symbols,
     positions,
@@ -87,4 +91,67 @@ def distance_matrix2struct(input_str: str) -> Atoms:
     """
     Given a lower triangular distance matrix representation, return the structure.
     """
-    pass
+    CONFIG = {}
+    CONFIG["descriptor"] = ["distance"]
+    CONFIG["all_neighbors"] = True
+    CONFIG["perturb"] = False
+    CONFIG["load_pos"] = False
+    CONFIG["cutoff"] = 10.0
+    CONFIG["offset_count"] = 1
+
+    cfg = OmegaConf.create(CONFIG)
+
+    lines = [x for x in input_str.split("\n") if len(x) > 0]
+    lengths = [float(x) for x in lines[0].split(" ")]
+    angles = [float(x) for x in lines[1].split(" ")]
+    species = [x.split(" ")[0] for x in lines[2:]]
+    lower_matrix = [[0]] + [[float(y) for y in x.split(" ")[1:]] for x in lines[3:]]
+
+    n = len(lower_matrix)
+    distance_matrix = torch.zeros((n, n))
+
+    for i in range(n):
+        for j in range(i + 1):
+            if i != j:
+                distance_matrix[i][j] = lower_matrix[i][j]
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            distance_matrix[i][j] = distance_matrix[j][i]
+
+    cell_arr = lengths + angles
+
+    atom = Atoms(symbols=species, cell=cell_arr)
+
+    cell = atom.get_cell()
+    atomic_numbers = atom.get_atomic_numbers()
+
+    data = {}
+    data["atomic_numbers"] = atomic_numbers
+    data["cell"] = torch.tensor(np.array(cell), dtype=torch.float, device=utils.get_device())
+    features = distance_matrix
+    data["representation"] = torch.unsqueeze(features, 0)
+    print(data["representation"].shape)
+
+
+    constructor = Reconstruction(cfg)
+
+    best_positions, _ = constructor.basin_hopping(
+        data,
+        total_trials=5,
+        max_hops=5,
+        lr=0.02,
+        displacement_factor=2,
+        max_loss=0.00001,
+        max_iter=500,
+        verbose=True,
+    )
+
+    optimized_structure = Atoms(
+        numbers=data["atomic_numbers"],
+        positions=best_positions.detach().cpu().numpy(),
+        cell=data["cell"].cpu().numpy(),
+        pbc=(True, True, True),
+    )
+
+    return optimized_structure
