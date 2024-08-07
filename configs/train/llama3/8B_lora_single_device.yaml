@@ -44,7 +44,7 @@ resume_from_checkpoint: False
 # Dataset and Sampler
 dataset:
   _component_: llm4structgen.datasets.torchtune_dataset.text_completion_dataset
-  representation_type: zmatrix 
+  representation_type: zmatrix
   source: json
   data_files: data/mp-20/train.json
   max_seq_len: 2096
@@ -116,3 +116,4 @@ profiler:
   warmup_steps: 5
   active_steps: 2
   num_cycles: 1
+
