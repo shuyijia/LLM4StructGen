@@ -17,11 +17,13 @@ class SLICES(BaseRepresentation):
         translate: bool = False,
         rotate: bool = False,
         permute: bool = False,
+        randomized: bool = False,
     ):
         super().__init__()
         self.translate = translate
         self.rotate = rotate
         self.permute = permute
+        self.randomized = randomized
 
         # prevent TensorFlow from allocating all available GPU memory at once
         gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -56,7 +58,11 @@ class SLICES(BaseRepresentation):
             coords_are_cartesian=True
         )
 
-        slices_str = self.backend.structure2SLICES(structure)
+        if self.randomized:
+            slices_str = self.backend.structure2SLICESAug(structure=structure,num=1)[0]
+        else:
+            slices_str = self.backend.structure2SLICES(structure)
+
         return slices_str
     
     def decode(self, input_str: str) -> Atoms:
