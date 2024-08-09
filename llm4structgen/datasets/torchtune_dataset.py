@@ -56,6 +56,7 @@ class TextCompletionDataset(Dataset):
         translate: bool = False,
         rotate: bool = False,
         permute: bool = False,
+        randomized: bool = False,
         decimals: int = 2,
         duplicate_count: int = 1,
     ) -> None:
@@ -99,7 +100,8 @@ class TextCompletionDataset(Dataset):
             self.encoder = SLICES(
                 translate=translate,
                 rotate=rotate,
-                permute=permute
+                permute=permute,
+                randomized=randomized
             )
         else:
             raise ValueError("Invalid representation type; must be one of 'cartesian', 'zmatrix', 'distance', or 'slices'")
@@ -208,6 +210,7 @@ def text_completion_dataset(
     translate: bool = False,
     rotate: bool = False,
     permute: bool = False,
+    randomized: bool = False,
     decimals: int = 2,
     duplicate_count: int = 1,
 ) -> TextCompletionDataset:
@@ -229,6 +232,7 @@ def text_completion_dataset(
         rotate=rotate,
         permute=permute,
         decimals=decimals,
+        randomized=randomized,
         duplicate_count=duplicate_count
     )
 
@@ -237,4 +241,3 @@ def text_completion_dataset(
         if packed
         else ds
     )
-
