@@ -37,7 +37,7 @@ checkpointer:
   ]
   adapter_checkpoint: null
   recipe_checkpoint: null
-  output_dir: exp/lora-${dataset.representation_type}
+  output_dir: exp/lora-${checkpointer.model_type}-${dataset.representation_type}-
   model_type: LLAMA3
 resume_from_checkpoint: False
 
@@ -83,6 +83,7 @@ metric_logger:
   _component_: torchtune.utils.metric_logging.WandBLogger
   project: torchtune-llm4structgen
   log_dir: ${output_dir}
+  name: 
 log_every_n_steps: 1
 log_peak_memory_stats: False
 

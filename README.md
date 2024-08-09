@@ -53,7 +53,9 @@ To start training, do
 
 ```
 tune run lora_finetune_single_device \
---config configs/train/llama2/7B_lora_single_device.yaml
+--config configs/train/llama2/7B_lora_single_device.yaml \
+dataset.representation_type=zmatrix \
+metric_logger.name=llama2_7b_zmatrix
 ```
 
 By default, `wandb` is used for logging.
@@ -93,7 +95,8 @@ pip install torch torchvision
 # install torchtune in target folder
 # DO NOT install torchtune via pip directly 
 # pip install torchtune won't work with our code
-git clone https://github.com/pytorch/torchtune.git
+# use forked version below 
+git clone https://github.com/shuyijia/torchtune.git
 cd torchtune
 pip install -e .
 
