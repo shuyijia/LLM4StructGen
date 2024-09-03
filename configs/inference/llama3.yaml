@@ -1,0 +1,49 @@
+model:
+  _component_: torchtune.models.llama3.llama3_8b
+
+representation_type: cartesian
+
+generation:
+  n_structures: 5
+  batch_size: 1 # no batch inference yet; this is a placeholder 
+  output_dir: exp/outputs
+
+checkpointer:
+  _component_: torchtune.training.FullModelMetaCheckpointer
+
+  # directory with the checkpoint files
+  # this should match the output_dir specified during
+  # fine-tuning
+  checkpoint_dir: exp/lora-LLAMA3-cartesian-02092024_082329
+
+  # checkpoint files for the fine-tuned model. These will be logged
+  # at the end of your fine-tune
+  checkpoint_files: [
+    meta_model_9.pt
+  ]
+
+  output_dir: exp/outputs
+  model_type: LLAMA3
+
+# Make sure to update the tokenizer path to the right
+# checkpoint directory as well
+tokenizer:
+  _component_: torchtune.models.llama3.llama3_tokenizer
+  path: /pscratch/sd/s/shuyijia/.cache/huggingface/Meta-Llama-3-8B/original/tokenizer.model
+
+# Environment
+device: cuda
+dtype: bf16
+seed: 
+
+# Generation arguments; defaults taken from gpt-fast
+prompt: null
+instruct_template: null
+chat_format: null
+max_new_tokens: 1024
+temperature: 0.6 # 0.8 and 0.6 are popular values to try
+top_k: 300
+# It is recommended to set enable_kv_cache=False for long-context models like Llama3.1
+enable_kv_cache: True
+
+quantizer: null

@@ -1,5 +1,8 @@
-# modified from https://github.com/pytorch/torchtune/blob/main/recipes/generate.py
-
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 import itertools
 import sys
 import time
@@ -14,7 +17,7 @@ import torch
 from omegaconf import DictConfig
 from torch import nn
 
-from torchtune import config, utils
+from torchtune import config, training, utils
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, InstructTemplate, Message
 
@@ -22,21 +25,29 @@ from llm4structgen.generation.unconditional_generation_prompts import *
 
 logger = utils.get_logger("DEBUG")
 
-class Generator:
+
+class InferenceRecipe:
     """
     Recipe for generating tokens from a dense Transformer-based LLM.
 
     Currently this recipe supports single-GPU generation only. Speculative
-    decoding is not supported. 
-    (Speculative decoding: https://pytorch.org/blog/hitchhikers-guide-speculative-decoding/)
+    decoding is not supported.
+
+    For more details on how to use this recipe for generation, please see our
+    tutorial: https://pytorch.org/torchtune/main/tutorials/e2e_flow.html#generation
+
+    For using this recipe with a quantized model, please the following section of
+    the above tutorial:
+    https://pytorch.org/torchtune/main/tutorials/e2e_flow.html#speeding-up-generation-using-quantization
     """
 
     def __init__(self, cfg: DictConfig) -> None:
-        
         self._device = utils.get_device(device=cfg.device)
-        self._dtype = utils.get_dtype(dtype=cfg.dtype, device=self._device)
+        self._dtype = training.get_dtype(dtype=cfg.dtype, device=self._device)
         self._quantizer = config.instantiate(cfg.quantizer)
-        self._quantization_mode = utils.get_quantizer_mode(self._quantizer)
+        self._quantization_mode = training.get_quantizer_mode(self._quantizer)
+
+        # utils.set_seed(seed=cfg.seed)
 
     def setup(self, cfg: DictConfig) -> None:
         checkpointer = config.instantiate(cfg.checkpointer)
@@ -50,7 +61,7 @@ class Generator:
 
         self._model = self._setup_model(
             model_cfg=cfg.model,
-            model_state_dict=ckpt_dict[utils.MODEL_KEY],
+            model_state_dict=ckpt_dict[training.MODEL_KEY],
             enable_kv_cache=cfg.enable_kv_cache,
         )
         self._tokenizer = config.instantiate(cfg.tokenizer)
@@ -61,7 +72,7 @@ class Generator:
         model_state_dict: Dict[str, Any],
         enable_kv_cache: bool = True,
     ) -> nn.Module:
-        with utils.set_default_dtype(self._dtype), self._device:
+        with training.set_default_dtype(self._dtype), self._device:
             model = config.instantiate(model_cfg)
 
         if self._quantization_mode is not None:
@@ -71,7 +82,9 @@ class Generator:
         model.load_state_dict(model_state_dict)
 
         # Validate model was loaded in with the expected dtype.
-        utils.validate_expected_param_dtype(model.named_parameters(), dtype=self._dtype)
+        training.validate_expected_param_dtype(
+            model.named_parameters(), dtype=self._dtype
+        )
         logger.info(f"Model is initialized with precision {self._dtype}.")
 
         # Ensure the cache is setup on the right device
@@ -80,7 +93,7 @@ class Generator:
                 model.setup_caches(batch_size=1, dtype=self._dtype)
 
         return model
-    
+
     def convert_prompt_to_tokens(
         self,
         prompt: Union[DictConfig, str],
@@ -151,7 +164,6 @@ class Generator:
                 temperature=cfg.temperature,
                 top_k=cfg.top_k,
                 stop_tokens=self._tokenizer.stop_tokens,
-                pad_id=self._tokenizer.pad_id,
                 custom_generate_next_token=custom_generate_next_token,
             )
             t = time.perf_counter() - t0
@@ -165,7 +177,6 @@ class Generator:
             temperature=cfg.temperature,
             top_k=cfg.top_k,
             stop_tokens=self._tokenizer.stop_tokens,
-            pad_id=self._tokenizer.pad_id,
             custom_generate_next_token=custom_generate_next_token,
         )
         t = time.perf_counter() - t0
@@ -188,7 +199,7 @@ class Generator:
         )
         logger.info(f"Bandwidth achieved: {model_size * tokens_sec / 1e9:.02f} GB/s")
         logger.info(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
-
+    
     @torch.no_grad()
     def _generate(self, cfg: DictConfig):
         # if seed is set in the config, deterministic generation is enabled
@@ -220,14 +231,13 @@ class Generator:
             temperature=cfg.temperature,
             top_k=cfg.top_k,
             stop_tokens=self._tokenizer.stop_tokens,
-            pad_id=self._tokenizer.pad_id,
             custom_generate_next_token=custom_generate_next_token,
         )
 
         output_str = self._tokenizer.decode(generated_tokens[0])
 
         return output_str
-    
+
     def generate_and_save(self, cfg: DictConfig):
         n_structures = cfg.generation.n_structures
         output_dir = cfg.generation.output_dir
@@ -248,11 +258,11 @@ class Generator:
         _cfg_dict = OmegaConf.to_container(_cfg, resolve=True)
         with open(fname, 'w') as f:
             json.dump(_cfg_dict, f)
-    
+
 @config.parse
 def main(cfg: DictConfig) -> None:
-    config.log_config(recipe_name="Generator", cfg=cfg)
-    recipe = Generator(cfg=cfg)
+    config.log_config(recipe_name="InferenceRecipe", cfg=cfg)
+    recipe = InferenceRecipe(cfg=cfg)
     recipe.setup(cfg=cfg)
     recipe.generate_and_save(cfg=cfg)
 
