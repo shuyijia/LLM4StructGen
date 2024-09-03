@@ -15,8 +15,8 @@ generation:
   output_dir: exp/outputs
 
 checkpointer:
-  _component_: torchtune.utils.FullModelHFCheckpointer
-  checkpoint_dir: exp/lora-cartesian/
+  _component_: torchtune.training.FullModelHFCheckpointer
+  checkpoint_dir: exp/lora-LLAMA2-cartesian-02092024_080200/
   checkpoint_files: [
     hf_model_0001_9.pt,
     hf_model_0002_9.pt,
