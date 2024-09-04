@@ -2,10 +2,17 @@ import os
 import json
 import ase.io
 import argparse
+import warnings
 from tqdm import tqdm
+from glob import glob
 from pathlib import Path
 from datetime import datetime
 from omegaconf import OmegaConf
+
+from llm4structgen.evaluation.cdvae.eval_utils import *
+
+# Suppress warnings from the pymatgen package
+warnings.filterwarnings("ignore", category=FutureWarning, module="pymatgen")
 
 class Evaluator:
     """
@@ -87,12 +94,15 @@ class Evaluator:
         Success Rate: {1 - len(failed_list) / len(outputs)}
         """
 
-        # save info_str to file without overwriting the file if the file already exists
-        info_file = save_dir / "info.txt"
-        with open(info_file, 'a') as f:
-            f.write(info_str)
-        
         print(info_str)
+
+        # save info_str to file without overwriting the file if the file already exists
+        if self.args.save:
+            info_file = save_dir.parent / "info.txt"
+            with open(info_file, 'a') as f:
+                f.write(info_str)
+
+        return save_dir if self.args.save else None
 
     def safe_decode(self, generated_str):
         try:
@@ -100,12 +110,104 @@ class Evaluator:
             return decoded
         except Exception as e:
             return None
+        
+    def decode_and_evaluate(self):
+        """
+        decode and evaluate the generated string representations
+        """
+        if not self.args.save:
+            raise ValueError("Save flag must be set to True for evaluation")
+
+        # decode to cifs and save
+        print("Decoding generated strings to cifs...")
+        save_dir = self.decode_to_cifs()
+
+        # get cifs
+        cifs = glob(f"{save_dir.parent}/*.cif")
+        assert len(cifs) == 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
+
+        # get crystals for generated structures
+        print("Getting crystals for generated structures...")
+        crys_array_list = get_crystals_list(cifs)
+        gen_crystals = p_map(lambda x: Crystal(x), crys_array_list)
+
+        # get crystals for testset structures
+        print("Getting crystals for test set structures...")
+        csv = pd.read_csv(self.args.testset_path)
+        test_crystals = p_map(get_gt_crys_ori, csv['cif'])
+
+        # get CDVAE metrics
+        gen_evaluator = GenEval(
+            gen_crystals, 
+            test_crystals, 
+            eval_model_name=self.args.eval_model_name
+        )
+
+        print("Calculating CDVAE metrics...")
+        all_metrics = {}
+        gen_metrics = gen_evaluator.get_metrics()
+        all_metrics.update(gen_metrics)
+
+        # save metrics
+        metrics_path = save_dir.parent / "metrics.json"
+        with open(metrics_path, 'w') as f:
+            json.dump(all_metrics, f)
+
+        print(all_metrics)
+
+    def evaluate(self):
+        """
+        evaluate a directory of cifs
+        """
+        # get cifs
+        cif_dir = Path(self.args.cif_dir)
+        cifs = glob(f"{cif_dir}/*.cif")
+        assert len(cifs) == 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
+
+        # get crystals for generated structures
+        print("Getting crystals for generated structures...")
+        crys_array_list = get_crystals_list(cifs)
+        gen_crystals = p_map(lambda x: Crystal(x), crys_array_list)
+
+        # get crystals for testset structures
+        print("Getting crystals for test set structures...")
+        csv = pd.read_csv(self.args.testset_path)
+        test_crystals = p_map(get_gt_crys_ori, csv['cif'])
+
+        # get CDVAE metrics
+        gen_evaluator = GenEval(
+            gen_crystals, 
+            test_crystals, 
+            eval_model_name=self.args.eval_model_name
+        )
+
+        print("Calculating CDVAE metrics...")
+        all_metrics = {}
+        gen_metrics = gen_evaluator.get_metrics()
+        all_metrics.update(gen_metrics)
+
+        # save metrics
+        metrics_path = cif_dir.parent / "metrics.json"
+        with open(metrics_path, 'w') as f:
+            json.dump(all_metrics, f)
+
+        print(all_metrics)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate the generated string representations for crystal structures")
     parser.add_argument("--config", type=str, help="path to the data file")
     parser.add_argument("--save", action='store_true', help="save the decoded cifs")
+    parser.add_argument("--testset_path", type=str, help="path to the testset csv", default="data/eval/test.csv")
+    parser.add_argument("--eval_model_name", type=str, help="name of the evaluation model", default="mp20")
+    parser.add_argument("--cif_dir", type=str, help="path to the directory of cifs", default=None)
+    parser.add_argument("--eval", action='store_true', help="evaluate the decoded cifs")
     args = parser.parse_args()
 
     evaluator = Evaluator(args)
-    evaluator.decode_to_cifs()
+
+    if args.cif_dir:
+        evaluator.evaluate()
+    elif args.eval:
+        evaluator.decode_and_evaluate()
+    else:
+        evaluator.decode_to_cifs()
