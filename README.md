@@ -63,7 +63,7 @@ By default, `wandb` is used for logging.
 ### Generation
 ```
 tune run llm4structgen/generation/inference.py \
---config configs/inference/generation.yaml \
+--config configs/inference/llama2.yaml \
 generation.n_structures=10 \
 ...
 ```
@@ -128,6 +128,9 @@ pip install -e .
 
 # additional packages
 pip install ase pymatgen wandb
+
+# CDVAE evaluation metrics
+pip install matminer p-tqdm smact==2.2.1
 
 # SLICES
 pip install tensorflow==2.15.0
