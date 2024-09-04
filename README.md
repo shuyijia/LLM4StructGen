@@ -3,7 +3,7 @@ Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
 
 ### TO-DOs
 - [] Batch inference
-- [] CDVAE evaluation workflow
+- [x] CDVAE evaluation workflow
 - [] Decoding for distance matrix
 
 ### Supported Representations
@@ -85,6 +85,27 @@ tune run lora_finetune_single_device \
     batch_size=8 \
     dataset.representation_type=distance \
     ...
+```
+
+### Evaluation
+We will obtain a `.json` file after inference which contains all the generated strings.
+
+To decode all string representations into cif files, we can do
+```
+python llm4structgen/evaluation/evaluate.py --config [PATH/TO/JSON] --save
+```
+Note, `--save` flag is used to save all decoded strings. To view only the success rate, simply omit the `--save` flag.
+
+To decode and calculate CDVAE metrics, do
+```
+python llm4structgen/evaluation/evaluate.py --config [PATH/TO/JSON] --save --eval
+```
+Note, this requires 10000 valid string representations.
+
+If you already have a directory with 10,000 cif files and want to evaluate them directly, do:
+
+```
+python llm4structgen/evaluation/evaluate.py --config [PATH/TO/JSON] --cif_dir [PATH/TO/DIR]
 ```
 
 ## Environment Setup
