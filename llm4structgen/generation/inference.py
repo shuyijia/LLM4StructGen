@@ -208,7 +208,7 @@ class InferenceRecipe:
 
         if cfg.prompt is not None:
             _prompt = cfg.prompt
-        if cfg.representation_type == "cartesian":
+        elif cfg.representation_type == "cartesian":
             _prompt = UNCONDITIONAL_CARTESIAN_GENERATION_PROMPT_HEADER
         elif cfg.representation_type == "distance":
             _prompt = UNCONDITIONAL_DISTANCE_MATRIX_GENERATION_PROMPT_HEADER
@@ -216,6 +216,8 @@ class InferenceRecipe:
             _prompt = UNCONDITIONAL_SLICES_GENERATION_PROMPT_HEADER
         elif cfg.representation_type == "zmatrix":
             _prompt = UNCONDITIONAL_Z_MATRIX_GENERATION_PROMPT_HEADER
+        else:
+            raise ValueError(f"Invalid representation type: {cfg.representation_type}")
 
         tokens = self.convert_prompt_to_tokens(
             _prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
@@ -237,20 +239,54 @@ class InferenceRecipe:
         output_str = self._tokenizer.decode(generated_tokens[0])
 
         return output_str
+    
+    def load_encoder(self, representation_type):
+        if representation_type == "cartesian":
+            from llm4structgen.representations.cartesian import Cartesian
+            encoder = Cartesian()
+        elif representation_type == "zmatrix":
+            from llm4structgen.representations.z_matrix import ZMatrix
+            encoder = ZMatrix()
+        elif representation_type == "distance":
+            from llm4structgen.representations.distance_matrix import DistanceMatrix
+            encoder = DistanceMatrix()
+        elif representation_type == "slices":
+            from llm4structgen.representations.slices import SLICES
+            encoder = SLICES()
+        else:
+            raise ValueError(f"Invalid representation type: {representation_type}")
+        
+        return encoder
 
     def generate_and_save(self, cfg: DictConfig):
         n_structures = cfg.generation.n_structures
         output_dir = cfg.generation.output_dir
+        require_valid = cfg.generation.require_valid
         model = cfg.model._component_.split('.')[-1]
 
         timestamp = datetime.now().strftime("%d%m%y_%H%M_%S")
         fname = f"{output_dir}/{model}_{cfg.representation_type}_{timestamp}.json"
 
         data = []
-        for _ in tqdm(range(n_structures)):
-            data.append(
-                self._generate(cfg=cfg)
-            )
+
+        if require_valid:
+            self.encoder = self.load_encoder(cfg.representation_type)
+            
+            valid_count = 0
+            with tqdm(total=n_structures, desc="Generating valid structures ...") as pbar:
+                while valid_count < n_structures:
+                    generated_str = self._generate(cfg=cfg)
+                    data.append(generated_str)
+
+                    decoded = self.safe_decode(generated_str)
+                    if decoded is not None:
+                        valid_count += 1
+                        pbar.update(1)
+        else:
+            for _ in tqdm(range(n_structures)):
+                data.append(
+                    self._generate(cfg=cfg)
+                )
         
         # save config and generated data as json
         _cfg = copy.deepcopy(cfg)
@@ -258,6 +294,17 @@ class InferenceRecipe:
         _cfg_dict = OmegaConf.to_container(_cfg, resolve=True)
         with open(fname, 'w') as f:
             json.dump(_cfg_dict, f)
+
+    def safe_decode(self, generated_str):
+        _splits = generated_str.strip().split("\n", 1)
+        assert len(_splits) == 2
+        generated_str = _splits[1]
+        
+        try:
+            decoded = self.encoder.decode(generated_str)
+            return decoded
+        except Exception as e:
+            return None
 
 @config.parse
 def main(cfg: DictConfig) -> None:
