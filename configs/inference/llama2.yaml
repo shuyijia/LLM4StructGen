@@ -13,6 +13,7 @@ generation:
   n_structures: 5
   batch_size: 1 # no batch inference yet; this is a placeholder 
   output_dir: exp/outputs
+  require_valid: False # will generate `n_structures` valid structures
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
