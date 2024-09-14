@@ -2,8 +2,7 @@ import numpy as np
 from ase import Atoms
 import torch
 
-from llm4structgen.reconstruction.reconstruction import Reconstruction
-from omegaconf import OmegaConf
+from llm4structgen.reconstruction.reconstruction import Reconstruction, dotdict
 from torchtune import utils
 
 from .base_representation import BaseRepresentation
@@ -92,23 +91,23 @@ def distance_matrix2struct(input_str: str) -> Atoms:
     Given a lower triangular distance matrix representation, return the structure.
     """
     CONFIG = {}
-    CONFIG["descriptor"] = ["distance"]
+    CONFIG["descriptor"] = "distance"
     CONFIG["all_neighbors"] = True
     CONFIG["perturb"] = False
     CONFIG["load_pos"] = False
     CONFIG["cutoff"] = 10.0
     CONFIG["offset_count"] = 1
 
-    cfg = OmegaConf.create(CONFIG)
+    cfg = dotdict(CONFIG)
 
     lines = [x for x in input_str.split("\n") if len(x) > 0]
     lengths = [float(x) for x in lines[0].split(" ")]
     angles = [float(x) for x in lines[1].split(" ")]
-    species = [x.split(" ")[0] for x in lines[2:]]
-    lower_matrix = [[0]] + [[float(y) for y in x.split(" ")[1:]] for x in lines[3:]]
+    species = [lines[2]] + [x for x in lines[3::2]]
+    lower_matrix = [[0]] + [[float(y) for y in x.split(" ")] for x in lines[4::2]]
 
     n = len(lower_matrix)
-    distance_matrix = torch.zeros((n, n))
+    distance_matrix = torch.zeros((n, n), dtype=torch.float, device=utils.get_device())
 
     for i in range(n):
         for j in range(i + 1):
@@ -131,8 +130,6 @@ def distance_matrix2struct(input_str: str) -> Atoms:
     data["cell"] = torch.tensor(np.array(cell), dtype=torch.float, device=utils.get_device())
     features = distance_matrix
     data["representation"] = torch.unsqueeze(features, 0)
-    print(data["representation"].shape)
-
 
     constructor = Reconstruction(cfg)
 

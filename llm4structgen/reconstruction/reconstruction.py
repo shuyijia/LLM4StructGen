@@ -2,7 +2,7 @@ import time, ase, torch
 import numpy as np
 import torch.nn.functional as F
 from ase import Atoms
-from distance import Distances, PBC_offsets
+from llm4structgen.reconstruction.distance import Distances, PBC_offsets
 from skopt.space import Space
 from torchtune import utils
 
@@ -386,3 +386,11 @@ class Reconstruction:
             data_list.append(data)
 
         return data_list
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes""" 
+    def __getattr__(*args):         
+        val = dict.get(*args) 
+        return dotdict(val) if type(val) is dict else val      
+    __setattr__ = dict.__setitem__     
+    __delattr__ = dict.__delitem__
