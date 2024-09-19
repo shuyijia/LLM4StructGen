@@ -17,7 +17,7 @@ import torch
 from omegaconf import DictConfig
 from torch import nn
 
-from torchtune import config, training, utils
+from torchtune import config, training, utils, generation
 from torchtune.config._utils import _get_component_from_path
 from torchtune.data import ChatFormat, InstructTemplate, Message
 
@@ -141,7 +141,7 @@ class InferenceRecipe:
             return self._tokenizer.tokenize_messages(messages)[0]
 
     @torch.no_grad()
-    def generate(self, cfg: DictConfig):
+    def generate(self, cfg: DictConfig, batch_size):
         tokens = self.convert_prompt_to_tokens(
             cfg.prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
         )
@@ -157,7 +157,7 @@ class InferenceRecipe:
                 utils.generate_next_token, mode="max-autotune", fullgraph=True
             )
             t0 = time.perf_counter()
-            _ = utils.generate(
+            _ = generation.generate(
                 model=self._model,
                 prompt=prompt,
                 max_generated_tokens=2,
@@ -170,7 +170,7 @@ class InferenceRecipe:
             logger.info(f"Warmup run for quantized model takes: {t:.02f} sec")
 
         t0 = time.perf_counter()
-        generated_tokens = utils.generate(
+        generated_tokens = generation.generate(
             model=self._model,
             prompt=prompt,
             max_generated_tokens=cfg.max_new_tokens,
@@ -201,7 +201,7 @@ class InferenceRecipe:
         logger.info(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
     
     @torch.no_grad()
-    def _generate(self, cfg: DictConfig):
+    def _generate(self, cfg: DictConfig, batch_size):
         # if seed is set in the config, deterministic generation is enabled
         # if seed is not set, a random seed is used
         # utils.set_seed(seed=cfg.seed)
@@ -222,11 +222,12 @@ class InferenceRecipe:
         tokens = self.convert_prompt_to_tokens(
             _prompt, cfg.get("chat_format", None), cfg.get("instruct_template", None)
         )
-        prompt = torch.tensor(tokens, dtype=torch.int, device=self._device)
+        # Format to [bsz,seq_len]
+        prompt = torch.tensor(tokens, dtype=torch.int, device=self._device).repeat(batch_size,1)
 
         custom_generate_next_token = None
 
-        generated_tokens = utils.generate(
+        generated_tokens = generation.generate(
             model=self._model,
             prompt=prompt,
             max_generated_tokens=cfg.max_new_tokens,
@@ -235,10 +236,9 @@ class InferenceRecipe:
             stop_tokens=self._tokenizer.stop_tokens,
             custom_generate_next_token=custom_generate_next_token,
         )
+        output_str_list = [self._tokenizer.decode(generated_tokens[i]) for i in range(batch_size)]
 
-        output_str = self._tokenizer.decode(generated_tokens[0])
-
-        return output_str
+        return output_str_list
     
     def load_encoder(self, representation_type):
         if representation_type == "cartesian":
@@ -275,19 +275,20 @@ class InferenceRecipe:
             valid_count = 0
             with tqdm(total=n_structures, desc="Generating valid structures ...") as pbar:
                 while valid_count < n_structures:
-                    generated_str = self._generate(cfg=cfg)
-                    data.append(generated_str)
+                    generated_strings = self._generate(cfg=cfg,batch_size=cfg.generation.batch_size)
+                    data+=generated_strings
 
-                    decoded = self.safe_decode(generated_str)
-                    if decoded is not None:
-                        valid_count += 1
-                        pbar.update(1)
+                    decoded = [self.safe_decode(generated_strings[i]) for i in range(cfg.generation.batch_size)]
+                    valid_count += cfg.generation.batch_size - decoded.count(None)
+                    pbar.update(valid_count)
         else:
-            for _ in tqdm(range(n_structures)):
-                data.append(
-                    self._generate(cfg=cfg)
-                )
-        
+            bar = tqdm(total=n_structures)
+            for i in range(0,n_structures,cfg.generation.batch_size):
+                # Ensures extra structures are not generated on last iteration 
+                batch_size = min(n_structures-i,cfg.generation.batch_size)
+                data+=self._generate(cfg=cfg,batch_size=batch_size)
+                bar.update(batch_size)
+
         # save config and generated data as json
         _cfg = copy.deepcopy(cfg)
         _cfg.outputs = data
