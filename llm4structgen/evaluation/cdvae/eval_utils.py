@@ -6,7 +6,7 @@ import numpy as np
 import multiprocessing as mp
 import os
 import signal
-import time  # For simulating delay in get_fingerprints
+import time  
 
 import threading
 import queue
@@ -325,9 +325,8 @@ class Crystal(object):
 
         if p.is_alive():
             print(f"get_fingerprints() timed out after {timeout} seconds. Skipping to the next item...")
-            # Forcefully kill the process if it's still alive
             os.kill(p.pid, signal.SIGKILL)
-            p.join()  # Clean up the process
+            p.join()  
             self.valid = False
         else:
             self.valid = shared_dict.get('valid', False)
