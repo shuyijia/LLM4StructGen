@@ -1,12 +1,16 @@
 # Copyright (c) Meta Platforms, Inc. and affiliates.
+
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 import itertools
+from io import StringIO
 import sys
 import time
 import json
+from ase.io import read
+
 import copy
 from tqdm import tqdm
 from datetime import datetime
@@ -270,14 +274,13 @@ class InferenceRecipe:
         data = []
 
         if require_valid:
+            assert True
             self.encoder = self.load_encoder(cfg.representation_type)
-            
             valid_count = 0
             with tqdm(total=n_structures, desc="Generating valid structures ...") as pbar:
                 while valid_count < n_structures:
                     generated_str = self._generate(cfg=cfg)
                     data.append(generated_str)
-
                     decoded = self.safe_decode(generated_str)
                     if decoded is not None:
                         valid_count += 1
@@ -299,9 +302,19 @@ class InferenceRecipe:
         _splits = generated_str.strip().split("\n", 1)
         assert len(_splits) == 2
         generated_str = _splits[1]
-        
+
+
         try:
             decoded = self.encoder.decode(generated_str)
+
+            print(f"Generated String: {decoded}", flush=True)
+
+            #with open("./test.txt", "w") as f:
+                #f.write(decoded)
+            #try:
+                #atoms = ase.io.read(cif):
+            #except:
+                #return None
             return decoded
         except Exception as e:
             return None

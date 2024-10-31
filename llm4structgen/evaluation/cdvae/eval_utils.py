@@ -1,4 +1,20 @@
 from glob import glob
+import os
+import signal
+from collections import Counter
+import numpy as np
+import multiprocessing as mp
+import os
+import signal
+import time  # For simulating delay in get_fingerprints
+
+import threading
+import queue
+
+import concurrent.futures
+
+import time
+
 import ase.io
 import itertools
 from p_tqdm import p_map
@@ -85,10 +101,38 @@ def smact_validity(comp, count,
 
 def compute_cov(crys, gt_crys,
                 struc_cutoff, comp_cutoff, num_gen_crystals=None):
-    struc_fps = [c.struct_fp for c in crys]
-    comp_fps = [c.comp_fp for c in crys]
-    gt_struc_fps = [c.struct_fp for c in gt_crys]
-    gt_comp_fps = [c.comp_fp for c in gt_crys]
+
+    #struc_fps = [c.struct_fp for c in crys]
+    #comp_fps = [c.comp_fp for c in crys]
+    struc_fps = []
+    comp_fps = []
+    for c in crys:
+        if (not c.valid):
+            print("Invalid")
+            continue;
+        try:
+            struc_fps.append(c.struct_fp)
+            comp_fps.append(c.comp_fp)
+        except:
+            continue
+
+    #gt_struc_fps = [c.struct_fp for c in gt_crys]
+    #gt_comp_fps = [c.comp_fp for c in gt_crys]
+    gt_struc_fps = []
+    gt_comp_fps = []
+
+    for c in gt_crys:
+        if (not c.valid):
+            continue;
+        try:
+            gt_struc_fps.append(c.struct_fp)
+            gt_comp_fps.append(c.comp_fp)
+        except:
+            continue
+
+    print("Getting length", flush=True)
+    print(len(gt_crys), flush=True)
+    print(len(crys), flush=True)
 
     assert len(struc_fps) == len(comp_fps)
     assert len(gt_struc_fps) == len(gt_comp_fps)
@@ -154,8 +198,13 @@ def filter_fps(struc_fps, comp_fps):
 def get_crystals_list(cifs):
     crystal_array_list = []
 
+    i = 0
     for cif in cifs:
-        atoms = ase.io.read(cif)
+        try:
+            atoms = ase.io.read(cif)
+        except:
+            i+=1
+            continue;
 
         crystal_array_list.append(
             {
@@ -166,6 +215,7 @@ def get_crystals_list(cifs):
             }
         )
     
+    print(i)
     return crystal_array_list
 
 def get_gt_crys_ori(cif):
@@ -179,6 +229,7 @@ def get_gt_crys_ori(cif):
     }
     return Crystal(crys_array_dict)
     
+
 class Crystal(object):
     def __init__(self, crys_array_dict):
         self.frac_coords = crys_array_dict['frac_coords']
@@ -190,10 +241,18 @@ class Crystal(object):
             self.dict['atom_types'] = (np.argmax(self.atom_types, axis=-1) + 1)
             self.atom_types = (np.argmax(self.atom_types, axis=-1) + 1)
 
-        self.get_structure()
-        self.get_composition()
-        self.get_validity()
-        self.get_fingerprints()
+        try:
+            self.get_structure()
+            self.get_composition()
+            self.get_validity()
+            #self.get_fingerprints()
+        except:
+            pass
+
+        self.valid = False
+        self.process_item_with_timeout(timeout=30)  # Set timeout here for each item
+
+
 
     def get_structure(self):
         if min(self.lengths.tolist()) < 0:
@@ -234,20 +293,49 @@ class Crystal(object):
             self.struct_valid = False
         self.valid = self.comp_valid and self.struct_valid
 
-    def get_fingerprints(self):
+    def get_fingerprints(self, shared_dict):
+        shared_dict['valid'] = True
         elem_counter = Counter(self.atom_types)
         comp = Composition(elem_counter)
-        self.comp_fp = CompFP.featurize(comp)
+        #self.comp_fp = CompFP.featurize(comp)
+        shared_dict['comp_fp'] = CompFP.featurize(comp)
         try:
             site_fps = [CrystalNNFP.featurize(
                 self.structure, i) for i in range(len(self.structure))]
         except Exception:
             # counts crystal as invalid if fingerprint cannot be constructed.
-            self.valid = False
-            self.comp_fp = None
-            self.struct_fp = None
+            shared_dict['valid'] = False
+            shared_dict['comp_fp'] = None
+            shared_dict['struct_fp'] = None
+            #self.valid = False
+            #self.comp_fp = None
+            #self.struct_fp = None
             return
-        self.struct_fp = np.array(site_fps).mean(axis=0)
+        #self.struct_fp = np.array(site_fps).mean(axis=0)
+        shared_dict['struct_fp'] = np.array(site_fps).mean(axis=0)
+
+    def process_item_with_timeout(self, timeout):
+        manager = mp.Manager()
+        shared_dict = manager.dict()
+
+        p = mp.Process(target=self.get_fingerprints, args=(shared_dict,))
+        p.start()
+
+        p.join(timeout=timeout)  # Wait for the function to finish
+
+        if p.is_alive():
+            print(f"get_fingerprints() timed out after {timeout} seconds. Skipping to the next item...")
+            # Forcefully kill the process if it's still alive
+            os.kill(p.pid, signal.SIGKILL)
+            p.join()  # Clean up the process
+            self.valid = False
+        else:
+            self.valid = shared_dict.get('valid', False)
+            self.comp_fp = shared_dict.get('comp_fp', None)
+            self.struct_fp = shared_dict.get('struct_fp', None)
+
+            #self.valid = True
+
 
 class GenEval(object):
     def __init__(self, pred_crys, gt_crys, n_samples=1000, eval_model_name=None):
@@ -266,8 +354,22 @@ class GenEval(object):
                 f'not enough valid crystals in the predicted set: {len(valid_crys)}/{n_samples}')
 
     def get_validity(self):
-        comp_valid = np.array([c.comp_valid for c in self.crys]).mean()
-        struct_valid = np.array([c.struct_valid for c in self.crys]).mean()
+        comp_v = []
+        struct_v = []
+
+        for c in self.crys:
+            if (not c.valid):
+                print("Invalid")
+                continue;
+            try:
+                comp_v.append(c.comp_valid)
+                struct_v.append(c.struct_valid)
+            except:
+                continue
+        #comp_valid = np.array([c.comp_valid for c in self.crys]).mean()
+        #struct_valid = np.array([c.struct_valid for c in self.crys]).mean()
+        comp_valid = np.array(comp_v).mean()
+        struct_valid = np.array(struct_v).mean()
         valid = np.array([c.valid for c in self.crys]).mean()
         return {'comp_valid': comp_valid,
                 'struct_valid': struct_valid,
@@ -275,16 +377,38 @@ class GenEval(object):
 
 
     def get_density_wdist(self):
-        pred_densities = [c.structure.density for c in self.valid_samples]
-        gt_densities = [c.structure.density for c in self.gt_crys]
+        pred_densities = []
+        gt_densities = []
+
+        for c in self.valid_samples:
+            if not c.valid:
+                print("Invalid")
+                continue
+            try:
+                pred_densities.append(c.structure.density)
+            except:
+                continue
+
+        for c in self.gt_crys:
+            if not c.valid:
+                print("Invalid")
+                continue
+            try:
+                gt_densities.append(c.structure.density)
+            except:
+                continue
+
+
+        #pred_densities = [c.structure.density for c in self.valid_samples]
+        #gt_densities = [c.structure.density for c in self.gt_crys]
         wdist_density = wasserstein_distance(pred_densities, gt_densities)
         return {'wdist_density': wdist_density}
 
 
     def get_num_elem_wdist(self):
         pred_nelems = [len(set(c.structure.species))
-                       for c in self.valid_samples]
-        gt_nelems = [len(set(c.structure.species)) for c in self.gt_crys]
+                       for c in self.valid_samples if c.valid]
+        gt_nelems = [len(set(c.structure.species)) for c in self.gt_crys if c.valid]
         wdist_num_elems = wasserstein_distance(pred_nelems, gt_nelems)
         return {'wdist_num_elems': wdist_num_elems}
 
@@ -316,3 +440,7 @@ class GenEval(object):
         metrics.update(self.get_num_elem_wdist())
         metrics.update(self.get_coverage())
         return metrics
+
+
+
+

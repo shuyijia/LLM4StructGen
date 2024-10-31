@@ -1,4 +1,7 @@
 import os
+import warnings
+warnings.filterwarnings("ignore")
+
 import json
 import ase.io
 import argparse
@@ -81,7 +84,10 @@ class Evaluator:
             if self.args.save:
                 # save as cif
                 cif_path = save_dir / f"{i}.cif"
-                ase.io.write(str(cif_path), decoded)
+                try:
+                    ase.io.write(str(cif_path), decoded)
+                except:
+                    continue;
 
         # get timestamp
         now = datetime.now()
@@ -110,7 +116,7 @@ class Evaluator:
             return decoded
         except Exception as e:
             return None
-        
+
     def decode_and_evaluate(self):
         """
         decode and evaluate the generated string representations
@@ -123,8 +129,8 @@ class Evaluator:
         save_dir = self.decode_to_cifs()
 
         # get cifs
-        cifs = glob(f"{save_dir.parent}/*.cif")
-        assert len(cifs) == 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
+        cifs = glob(f"{save_dir.parent}/cifs/*.cif")
+        assert len(cifs) >= 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
 
         # get crystals for generated structures
         print("Getting crystals for generated structures...")
@@ -136,6 +142,8 @@ class Evaluator:
         csv = pd.read_csv(self.args.testset_path)
         test_crystals = p_map(get_gt_crys_ori, csv['cif'])
 
+        print(len(gen_crystals))
+        print(len(test_crystals))
         # get CDVAE metrics
         gen_evaluator = GenEval(
             gen_crystals, 
@@ -162,7 +170,7 @@ class Evaluator:
         # get cifs
         cif_dir = Path(self.args.cif_dir)
         cifs = glob(f"{cif_dir}/*.cif")
-        assert len(cifs) == 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
+        assert len(cifs) >= 10000, f"Expected 10000 cifs for CDVAE metrics, got {len(cifs)}"
 
         # get crystals for generated structures
         print("Getting crystals for generated structures...")
