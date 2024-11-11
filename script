@@ -1,15 +1,22 @@
-
 nohup tune run lora_finetune_single_device --config configs/train/llama2/7B_lora_single_device.yaml dataset.representation_type=zmatrix dataset.permute=True checkpointer.output_dir="exp/lora-zmatrix-llama2-permute" metric_logger.name=llama2_7b_zmatrix > lora-zmatrix-llama2-permute.out &
 
-nohup tune run lora_finetune_single_device --config configs/train/llama3/8B_lora_single_device.yaml dataset.representation_type=zmatrix dataset.permute=False checkpointer.output_dir="exp/lora-zmatrix-llama3-nopermute" > lora-zmatrix-llama3-nopermute.out &
+nohup tune run lora_finetune_single_device --config configs/train/llama3/8B_lora_single_device.yaml dataset.representation_type=zmatrix dataset.permute=False checkpointer.output_dir="exp/lora-zmatrix-llama3-nopermute-20epoch" > lora-zmatrix-llama3-nopermute-20epochs.out &
+
+nohup tune run lora_finetune_single_device --config configs/train/llama3/8B_lora_single_device.yaml dataset.representation_type=zmatrix dataset.permute=True checkpointer.output_dir="exp/lora-zmatrix-llama3-nopermute-20epoch31102024_104304" > lora-zmatrix-llama3-nopermute-20epochs.out &
+
+# zmatrix to cartesian 
+nohup tune run lora_finetune_single_device --config configs/train/llama3/8B_lora_single_device_resume_zmatrix.yaml dataset.permute=True > lora-zmatrixtocartesian-llama3-nopermute-10epochs.out &
 
 
-nohup tune run llm4structgen/generation/inference.py --config configs/inference/llama3.yaml generation.n_structures=10000 representation_type=zmatrix tokenizer.path="/tmp/Meta-Llama-3-8B/original/tokenizer.model" generation.require_valid="True" checkpointer.checkpoint_dir="exp/lora-zmatrix-llama3-permute12092024_194132" > logs/inference-llama3-permute.out &
+nohup tune run llm4structgen/generation/inference.py --config configs/inference/llama3.yaml generation.n_structures=12000 representation_type=zmatrix tokenizer.path="/tmp/Meta-Llama-3-8B/original/tokenizer.model" generation.require_valid="True" checkpointer.checkpoint_dir="exp/lora-zmatrix-llama3-nopermute-20epoch31102024_104304" > inference-llama3-nopermute.out &
+
 
 nohup tune run llm4structgen/generation/inference.py --config configs/inference/llama2.yaml generation.n_structures=10000 representation_type=zmatrix tokenizer.path="/tmp/Llama-2-7b-hf/tokenizer.model" checkpointer.checkpoint_dir="exp/lora-zmatrix-llama2-28-08-2024-nopermute28082024_204401" > logs/inference-llama2-nopermute.out &
 
 
 
 nohup tune run llm4structgen/generation/inference.py --config configs/inference/llama3.yaml generation.n_structures=1500 representation_type=zmatrix tokenizer.path="/tmp/Meta-Llama-3-8B/original/tokenizer.model" generation.require_valid="True" checkpointer.checkpoint_dir="./exp/lora-zmatrix-llama3-nopermute15092024_191604/" > logs/inference-llama3-nopermute.out &
+
+python llm4structgen/evaluation/evaluate.py --config exp/llama3_8b_cartesian_081124_1709_41.json --save
 
 tune download meta-llama/Meta-Llama-3-8B --output-dir /tmp/Meta-Llama-3-8B

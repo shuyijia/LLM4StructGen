@@ -31,20 +31,22 @@ tokenizer:
 
 checkpointer:
   _component_: torchtune.training.FullModelMetaCheckpointer
-  checkpoint_dir: /tmp/Meta-Llama-3-8B/original/
+  checkpoint_dir: /global/cfs/projectdirs/m3641/Aamod/LLM4StructGen/exp/lora-zmatrix-llama3-nopermute15092024_191604
   checkpoint_files: [
-    consolidated.00.pth
+    #consolidated.00.pth
+    meta_model_9.pt
   ]
-  adapter_checkpoint: null
-  recipe_checkpoint: null
-  output_dir: exp/lora-${checkpointer.model_type}-${dataset.representation_type}-
+  adapter_checkpoint: adapter_9.pt
+  recipe_checkpoint: recipe_state.pt
+    #output_dir: exp/lora-${checkpointer.model_type}-${dataset.representation_type}-
+  output_dir: exp/lora-${checkpointer.model_type}-zmatrix_to_${dataset.representation_type}-
   model_type: LLAMA3
-resume_from_checkpoint: False
+resume_from_checkpoint: True
 
 # Dataset and Sampler
 dataset:
   _component_: llm4structgen.datasets.torchtune_dataset.text_completion_dataset
-  representation_type: zmatrix
+  representation_type: cartesian 
   source: json
   data_files: data/mp-20/train.json
   max_seq_len: 2096
@@ -72,7 +74,7 @@ loss:
   _component_: torch.nn.CrossEntropyLoss
 
 # Training
-epochs: 20
+epochs: 10
 max_steps_per_epoch: null
 gradient_accumulation_steps: 64
 compile: False
