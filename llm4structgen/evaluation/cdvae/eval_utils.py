@@ -22,6 +22,11 @@ from scipy.spatial.distance import cdist
 from llm4structgen.evaluation.cdvae.constants import *
 from llm4structgen.evaluation.cdvae.scaler import StandardScaler
 
+import multiprocessing as mp
+import os
+import signal
+from pprint import pprint
+
 CrystalNNFP = CrystalNNFingerprint.from_preset("ops")
 CompFP = ElementProperty.from_preset('magpie')
 CompScaler = StandardScaler(
@@ -85,10 +90,33 @@ def smact_validity(comp, count,
 
 def compute_cov(crys, gt_crys,
                 struc_cutoff, comp_cutoff, num_gen_crystals=None):
-    struc_fps = [c.struct_fp for c in crys]
-    comp_fps = [c.comp_fp for c in crys]
-    gt_struc_fps = [c.struct_fp for c in gt_crys]
-    gt_comp_fps = [c.comp_fp for c in gt_crys]
+    #struc_fps = [c.struct_fp for c in crys]
+    #comp_fps = [c.comp_fp for c in crys]
+    struc_fps = []
+    comp_fps = []
+    for c in crys:
+        if (not c.valid):
+            print("Invalid")
+            continue;
+        try:
+            struc_fps.append(c.struct_fp)
+            comp_fps.append(c.comp_fp)
+        except:
+            continue
+
+    #gt_struc_fps = [c.struct_fp for c in gt_crys]
+    #gt_comp_fps = [c.comp_fp for c in gt_crys]
+    gt_struc_fps = []
+    gt_comp_fps = []
+
+    for c in gt_crys:
+        if (not c.valid):
+            continue;
+        try:
+            gt_struc_fps.append(c.struct_fp)
+            gt_comp_fps.append(c.comp_fp)
+        except:
+            continue
 
     assert len(struc_fps) == len(comp_fps)
     assert len(gt_struc_fps) == len(gt_comp_fps)
@@ -193,7 +221,8 @@ class Crystal(object):
         self.get_structure()
         self.get_composition()
         self.get_validity()
-        self.get_fingerprints()
+        # self.get_fingerprints()
+        self.process_item_with_timeout(20)
 
     def get_structure(self):
         if min(self.lengths.tolist()) < 0:
@@ -234,20 +263,47 @@ class Crystal(object):
             self.struct_valid = False
         self.valid = self.comp_valid and self.struct_valid
 
-    def get_fingerprints(self):
+    def get_fingerprints(self, shared_dict):
+        shared_dict['valid'] = True
         elem_counter = Counter(self.atom_types)
         comp = Composition(elem_counter)
-        self.comp_fp = CompFP.featurize(comp)
+        #self.comp_fp = CompFP.featurize(comp)
+        shared_dict['comp_fp'] = CompFP.featurize(comp)
         try:
             site_fps = [CrystalNNFP.featurize(
                 self.structure, i) for i in range(len(self.structure))]
         except Exception:
             # counts crystal as invalid if fingerprint cannot be constructed.
-            self.valid = False
-            self.comp_fp = None
-            self.struct_fp = None
+            shared_dict['valid'] = False
+            shared_dict['comp_fp'] = None
+            shared_dict['struct_fp'] = None
+            #self.valid = False
+            #self.comp_fp = None
+            #self.struct_fp = None
             return
-        self.struct_fp = np.array(site_fps).mean(axis=0)
+        #self.struct_fp = np.array(site_fps).mean(axis=0)
+        shared_dict['struct_fp'] = np.array(site_fps).mean(axis=0)
+
+    def process_item_with_timeout(self, timeout):
+        manager = mp.Manager()
+        shared_dict = manager.dict()
+
+        p = mp.Process(target=self.get_fingerprints, args=(shared_dict,))
+        p.start()
+
+        p.join(timeout=timeout)  # Wait for the function to finish
+
+        if p.is_alive():
+            print(f"get_fingerprints() timed out after {timeout} seconds. Skipping to the next item...")
+            # Forcefully kill the process if it's still alive
+            os.kill(p.pid, signal.SIGKILL)
+            p.join()  # Clean up the process
+            self.valid = False
+        else:
+            self.valid = shared_dict.get('valid', False)
+            self.comp_fp = shared_dict.get('comp_fp', None)
+            self.struct_fp = shared_dict.get('struct_fp', None)
+            # print(f"valid: {self.valid}, comp_fp: {self.comp_fp}, struct_fp: {self.struct_fp}")
 
 class GenEval(object):
     def __init__(self, pred_crys, gt_crys, n_samples=1000, eval_model_name=None):

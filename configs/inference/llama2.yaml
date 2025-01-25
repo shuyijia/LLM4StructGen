@@ -7,7 +7,7 @@
 model:
   _component_: torchtune.models.llama2.llama2_7b
 
-representation_type: cartesian
+representation_type: distance
 
 generation:
   n_structures: 5
@@ -17,7 +17,7 @@ generation:
 
 checkpointer:
   _component_: torchtune.training.FullModelHFCheckpointer
-  checkpoint_dir: exp/lora-LLAMA2-cartesian-02092024_080200/
+  checkpoint_dir: exp/lora-LLAMA2-distance-perm-true/
   checkpoint_files: [
     hf_model_0001_9.pt,
     hf_model_0002_9.pt,
@@ -33,7 +33,7 @@ seed:
 # Tokenizer arguments
 tokenizer:
   _component_: torchtune.models.llama2.llama2_tokenizer
-  path: /pscratch/sd/s/shuyijia/.cache/huggingface/Llama-2-7b-hf/tokenizer.model
+  path: /pscratch/sd/p/pranavm/.cache/huggingface/Llama-2-7b-hf/tokenizer.model
 
 # Generation arguments; defaults taken from gpt-fast
 prompt: null

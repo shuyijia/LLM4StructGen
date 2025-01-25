@@ -30,7 +30,7 @@ tokenizer:
   path: /tmp/Llama-2-7b-hf/tokenizer.model
 
 checkpointer:
-  _component_: torchtune.utils.FullModelHFCheckpointer
+  _component_: torchtune.training.FullModelHFCheckpointer
   checkpoint_dir: /tmp/Llama-2-7b-hf
   checkpoint_files: [
     pytorch_model-00001-of-00002.bin,
@@ -52,7 +52,7 @@ dataset:
   attributes: False
   translate: False
   rotate: False
-  permute: False
+  permute: True
   decimals: 2
   duplicate_count: 1
   packed: False
@@ -81,7 +81,7 @@ compile: False
 # Logging
 output_dir: exp/logs
 metric_logger:
-  _component_: torchtune.utils.metric_logging.WandBLogger
+  _component_: torchtune.training.metric_logging.WandBLogger
   project: torchtune-llm4structgen
   log_dir: ${output_dir}
   name: 
@@ -96,7 +96,7 @@ enable_activation_checkpointing: True
 # Show case the usage of pytorch profiler
 # Set enabled to False as it's only needed for debugging training
 profiler:
-  _component_: torchtune.utils.setup_torch_profiler
+  _component_: torchtune.training.setup_torch_profiler
   enabled: False
 
   #Output directory of trace artifacts
