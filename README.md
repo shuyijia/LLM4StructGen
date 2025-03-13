@@ -1,22 +1,10 @@
 # LLM4StructGen
-Fine-tuning LLMs for Benchmarking Textual Representations in Crystal Generation
+Benchmarking Text Representations for Crystal Structure Generation with Large Language Models
 
-### TO-DOs
-- [] Batch inference
-- [x] CDVAE evaluation workflow
-- [] Decoding for distance matrix
+<figure>
+  <img src="./assets/overview.png" alt="Image">
+</figure>
 
-### Supported Representations
-- [x] Cartesian (CIF)
-- [x] Z-matrix
-- [x] Distance matrix
-- [x] SLICES
-
-### Tested Training
-| Recipe                      | Model       | Cluster                 | GPUs          | Batch Size | VRAM | Time (hrs) |
-|-----------------------------|-------------|-------------------------|---------------|------------|---------------------|----------------------|
-| `lora_finetune_single_device` | LLaMA-2-7B  | Perlmutter login   | 1 x A100 40GB | 4          | 15GB/GPU               | 1-2/epoch            |
-| `lora_finetune_distributed`   | LLaMA-2-13B | Perlmutter compute | 4 x A100 80GB | 2          | 20GB/GPU               | 1 /epoch             |
 
 ## Usage
 ```
@@ -40,7 +28,7 @@ tune run --nnodes 1 --nproc_per_node 4 [RECIPE] --config [PATH/TO/YAML]
 
 The first argument, [RECIPE], specifies the template to be used for this run. Recipes can be thought of as pipelines for training or inference. (see more [here](https://pytorch.org/torchtune/main/deep_dives/recipe_deepdive.html)).
 
-### Sample Run (LLaMA-2 with LoRA on Cartesian Representations)
+### Sample Run (LLaMA-2 with LoRA on Cartesian/Fractional Representations)
 First, we need to download checkpoint weights from HuggingFace:
 ```
 tune download meta-llama/Llama-2-7b-hf \
@@ -108,7 +96,14 @@ If you already have a directory with 10,000 cif files and want to evaluate them 
 python llm4structgen/evaluation/evaluate.py --config [PATH/TO/JSON] --cif_dir [PATH/TO/DIR]
 ```
 
-## Environment Setup
+#### Crystal-text-LLM IPT (Increase in Perplexity under Transformation)
+We include a script to calculate IPT as proposed by [Gruver et al.](https://arxiv.org/abs/2402.04379), where
+$$
+IPT(s) = \mathbb{E}_{g\in G} \left[ PPL(t_g (s)) - PPL(t_{g^{*}}(s))\right],
+$$
+where $s$ is the input structure, $PPL$ is the perplexity of the input sequence, and $t_g$ is the mapping that applies invariant operation on $s$ and encodes it as a string representation. In particular, $g^* = \arg \min PPL(t_g(s))$.
+
+## ⚙️ Environment Setup
 ```
 conda create -n llm4structgen python=3.10
 pip install torch torchvision
@@ -138,30 +133,3 @@ pip install slices
 pip install mace-torch
 ```
 
-The current installation of `tensorflow==2.15.0` and `slices` will throw the following warnings:
-
-```
-[...] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
-[...] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
-[...] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
-WARNING:tensorflow:
-[...]
-experimental_relax_shapes is deprecated, use reduce_retracing instead
-```
-
-These should have no effect on our use cases.
-
-## Key Updates
-### 07/24/24 (Shuyi)
-After some experimentation, I decided to use [torchtune](https://github.com/pytorch/torchtune) as the training framework. 
-
-This allows us to quickly fine-tune LLMs with the following benefits without writing tons of custom codes:
-- several supported fine-tuning techniques, e.g. full fine-tuning, LoRA, QLoRA
-- several supported LLMs including LLaMA-2/3/3.1, Gemma and others 
-- tested and memory efficient quantization settings
-- distributed training out of the box 
-
-### 07/04/24 (Shuyi)
-- Restructured the entire codebase to enhance extensibility
-- Added support for `translate`, `rotate` and `permute` of data
-- Added support for `duplicity`, which allows duplicating a single sample in the dataset `x` times
