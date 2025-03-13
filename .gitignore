@@ -171,3 +171,4 @@ archives/
 
 *.out
 *.png
+!assets/overview.png
