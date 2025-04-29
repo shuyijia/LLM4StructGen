@@ -68,7 +68,8 @@ class Evaluator:
             # retrieve the generated string
             _splits = s.strip().split("\n", 1)
             assert len(_splits) == 2
-            generated_str = _splits[1]
+            # For padding tokens
+            generated_str = _splits[1].replace('\u2047','').rstrip()
 
             # decode
             # decoded = self.encoder.decode(generated_str)
